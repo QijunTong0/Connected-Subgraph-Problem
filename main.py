@@ -1,5 +1,5 @@
 from visualization import generate_data, visualize_solution
-from mip_model import solve_assignment
+from mip_model.xy_minmax import solve_assignment
 import random
 import numpy as np
 def main():
