@@ -1,4 +1,5 @@
 from visualization import generate_data, visualize_solution
+from mip_model import solve_assignment
 import random
 import numpy as np
 def main():
@@ -8,14 +9,14 @@ def main():
     SEED = 42 # 再現用シード
 
     # データ生成
-    grid, reqs = generate_data(F_NUM, P_NUM, cell_value_range=(1,9), seed=SEED)
+    grid, reqs = generate_data(F_NUM, P_NUM, seed=SEED)
     print("Generated grid:") 
     print(grid)
     print("Player requirements:", reqs)
 
     # （ここで MIP を解いて assignment を取得する想定）
     # デモ用にランダム配置
-    assignment = np.random.randint(0,P_NUM,size=(F_NUM,F_NUM))
+    assignment  = solve_assignment(grid, reqs, stone_budget=None)
     # 可視化
     visualize_solution(grid, assignment)
 

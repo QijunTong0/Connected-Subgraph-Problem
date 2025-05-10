@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
-def generate_data(n, m, cell_value_range=(0, 9), req_range=None, seed=None):
+def generate_data(n, m, cell_value_range=(1, 9), req_range=None, seed=None):
     """
     Generate random input data for the assignment problem.
     
@@ -15,7 +15,7 @@ def generate_data(n, m, cell_value_range=(0, 9), req_range=None, seed=None):
     low, high = cell_value_range
     grid = np.random.randint(low, high+1, size=(n, n))
     if req_range is None:
-        req_low, req_high = 0, int(n*n*high/m)
+        req_low, req_high = 0, int(n*n*high/m/3)
     else:
         req_low, req_high = req_range
     requirements = np.random.randint(req_low, req_high+1, size=m)
@@ -40,6 +40,6 @@ def visualize_solution(grid, assignment):
     #    for j in range(n):
     #        ax.text(j+0.5, i+0.5, str(grid[i, j]), va='center', ha='center')
     ax.set_xticks([]); ax.set_yticks([])
-    ax.set_title("Grid assignment (colors = players)")
+    ax.set_title(f"Area Assignment ({n**2} blocks; {m+1} agents)")
     plt.gca().invert_yaxis()
     plt.show()
