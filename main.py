@@ -1,9 +1,6 @@
 import formulation.edge_diff
 import formulation.xy_boundbox
 from visualization import generate_data, visualize_solution
-import formulation
-import random
-import numpy as np
 
 F_NUM = 10  # グリッドサイズ
 P_NUM = 4  # プレイヤー数
@@ -22,7 +19,7 @@ def main():
     print(grid)
     print("Player requirements:", reqs)
 
-    # （ここで MIP を解いて assignment を取得する想定）
+    # 異なる定式化で結果を比較
     assignment = formulation.edge_diff.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
     visualize_solution(grid, assignment, filename="output/minimize_edge_diff.svg")
 
