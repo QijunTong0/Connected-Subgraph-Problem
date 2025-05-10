@@ -65,7 +65,7 @@ def solve_assignment(grid: np.ndarray,
     model.objective = xsum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m))
 
     # 解く
-    status = model.optimize(max_seconds=60)
+    status = model.optimize(max_seconds=30)
 
     # 結果を assignment 行列に変換
     assignment = np.zeros((n, n), dtype=int)

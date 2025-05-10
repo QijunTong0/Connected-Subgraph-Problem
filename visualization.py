@@ -21,7 +21,7 @@ def generate_data(n, m, cell_value_range=(1, 9), req_range=None, seed=None):
     requirements = np.random.randint(req_low, req_high+1, size=m)
     return grid, requirements
 
-def visualize_solution(grid, assignment):
+def visualize_solution(grid, assignment,filename):
     """
     Visualize an assignment.
     
@@ -35,6 +35,8 @@ def visualize_solution(grid, assignment):
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.pcolormesh(assignment, cmap=cmap, edgecolors='k', linewidth=0.5)
     ax.set_xticks([]); ax.set_yticks([])
-    ax.set_title(f"Area Assignment ({n**2} blocks; {m+1} agents)")
+    ax.set_title(f"Area Assignment ({n**2} blocks; {m} agents)")
     plt.gca().invert_yaxis()
-    plt.show()
+    # save to file
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close(fig)
