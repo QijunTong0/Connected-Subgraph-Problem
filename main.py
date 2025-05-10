@@ -4,12 +4,12 @@ import random
 import numpy as np
 def main():
     # パラメータ
-    F_NUM = 15 # グリッドサイズ
-    P_NUM = 8 # プレイヤー数
+    F_NUM = 10 # グリッドサイズ
+    P_NUM = 4 # プレイヤー数
     SEED = 42 # 再現用シード
 
     # データ生成
-    grid, reqs = generate_data(F_NUM, P_NUM, seed=SEED)
+    grid, reqs = generate_data(F_NUM, P_NUM, cell_value_range=(1,1),req_range=(15,15),seed=SEED)
     print("Generated grid:") 
     print(grid)
     print("Player requirements:", reqs)

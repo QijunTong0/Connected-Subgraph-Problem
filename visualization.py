@@ -28,17 +28,12 @@ def visualize_solution(grid, assignment):
     assignment: n×n array of ints in {0,1,...,m}
     """
     n = grid.shape[0]
-    m = assignment.max()
-    base_colors = list(plt.cm.get_cmap('tab10').colors)
+    m = assignment.max()+1
+    base_colors = list(plt.cm.get_cmap('tab20').colors)
     cmap = colors.ListedColormap(base_colors[:m])
-    bounds = np.arange(m+1) - 0.5
-    norm = colors.BoundaryNorm(bounds, cmap.N)
 
     fig, ax = plt.subplots(figsize=(6, 6))
-    ax.pcolormesh(assignment, cmap=cmap, edgecolors='k', linewidth=1, norm=norm)
-    #for i in range(n):
-    #    for j in range(n):
-    #        ax.text(j+0.5, i+0.5, str(grid[i, j]), va='center', ha='center')
+    ax.pcolormesh(assignment, cmap=cmap, edgecolors='k', linewidth=0.5)
     ax.set_xticks([]); ax.set_yticks([])
     ax.set_title(f"Area Assignment ({n**2} blocks; {m+1} agents)")
     plt.gca().invert_yaxis()

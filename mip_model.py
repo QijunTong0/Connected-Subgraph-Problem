@@ -60,13 +60,11 @@ def solve_assignment(grid: np.ndarray,
             # linearization: z <= x1, z <= x2, z >= x1 + x2 -1
             model.add_constr(z[p,k] >= x[i1][j1][k]-x[i2][j2][k])
             model.add_constr(z[p,k] >= x[i2][j2][k]-x[i1][j1][k])
-
     # 目的関数：総石数最小化
     model.objective = xsum(z.values())
 
     # 解く
-    status = model.optimize()
-    print(status)
+    status = model.optimize(max_seconds=10)
 
     # 結果を assignment 行列に変換
     assignment = np.zeros((n, n), dtype=int)
