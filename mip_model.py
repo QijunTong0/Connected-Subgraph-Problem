@@ -45,26 +45,27 @@ def solve_assignment(grid: np.ndarray,
             <= stone_budget
         )
 
-    pairs = []
-    for i in range(n-1):
-        for j in range(n-1):
-            if i+1 < n:
-                pairs.append(((i,j),(i+1,j)))
-            if j+1 < n:
-                pairs.append(((i,j),(i,j+1)))
-    # z[pair_idx, k]: ペア内で両方同じプレイヤ k が置かれると0
-    z = {}
-    for p, ((i1,j1),(i2,j2)) in enumerate(pairs):
-        for k in range(m):
-            z[p,k] = model.add_var(var_type=CONTINUOUS, name=f"z_{p}_{k}",ub=1)
-            # linearization: z <= x1, z <= x2, z >= x1 + x2 -1
-            model.add_constr(z[p,k] >= x[i1][j1][k]-x[i2][j2][k])
-            model.add_constr(z[p,k] >= x[i2][j2][k]-x[i1][j1][k])
+    # 各プレイヤのバウンディングボックス変数
+    Xmin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Xmin_{k}") for k in range(m)]
+    Xmax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Xmax_{k}") for k in range(m)]
+    Ymin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Ymin_{k}") for k in range(m)]
+    Ymax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Ymax_{k}") for k in range(m)]
+
+    # バウンディングボックス制約
+    for k in range(m):
+        for i in range(n):
+            for j in range(n):
+                # if x=1 then Xmin <= i <= Xmax, Ymin <= j <= Ymax
+                model.add_constr(Xmin[k] <= i + (1 - x[i][j][k]) * n)
+                model.add_constr(Xmax[k] >= i - (1 - x[i][j][k]) * n)
+                model.add_constr(Ymin[k] <= j + (1 - x[i][j][k]) * n)
+                model.add_constr(Ymax[k] >= j - (1 - x[i][j][k]) * n)
+
     # 目的関数：総石数最小化
-    model.objective = xsum(z.values())
+    model.objective = xsum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m))
 
     # 解く
-    status = model.optimize(max_seconds=10)
+    status = model.optimize(max_seconds=60)
 
     # 結果を assignment 行列に変換
     assignment = np.zeros((n, n), dtype=int)
