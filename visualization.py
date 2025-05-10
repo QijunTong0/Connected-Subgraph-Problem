@@ -23,7 +23,7 @@ def generate_data(n, m, cell_value_range=(1, 9), req_range=None, seed=None):
     return grid, requirements
 
 
-def visualize_solution(grid, assignment, filename):
+def visualize_solution(grid, assignment, seconds, filename):
     """
     Visualize an assignment.
 
@@ -38,7 +38,7 @@ def visualize_solution(grid, assignment, filename):
     ax.pcolormesh(assignment, cmap=cmap, edgecolors="k", linewidth=0.5)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title(f"Assignment Result\n ({n**2} blocks; {m} agents; 30 seconds)")
+    ax.set_title(f"Assignment Result\n ({n**2} blocks; {m} agents; {seconds} seconds)")
     plt.gca().invert_yaxis()
     # save to file
     plt.savefig(filename, bbox_inches="tight")

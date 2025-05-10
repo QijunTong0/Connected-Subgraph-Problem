@@ -19,7 +19,7 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
 
     # モデル作成
     model = Model(sense="MIN")
-    model.verbose = 0
+    # model.verbose = 0
 
     # 変数 x[i,j,k]
     x = [
