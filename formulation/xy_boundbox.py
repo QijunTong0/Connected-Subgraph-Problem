@@ -2,7 +2,7 @@ import numpy as np
 from mip import Model, xsum, BINARY, CONTINUOUS, OptimizationStatus
 
 
-def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None):
+def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds=30):
     """
     Solve the assignment problem via python-mip:
       - x[i,j,k] ∈ {0,1}: player k places stone on cell (i,j)
@@ -19,6 +19,7 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
 
     # モデル作成
     model = Model(sense="MIN")
+    model.verbose = 0
 
     # 変数 x[i,j,k]
     x = [
@@ -28,11 +29,12 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
     # 各セルに一石
     for i in range(n):
         for j in range(n):
-            model.add_constr(xsum(x[i][j][k] for k in range(m)) == 1)
+            model.add_constr(xsum(x[i][j][k] for k in range(m)) <= 1)
 
     # 各プレイヤの得点要件
     for k in range(m):
         model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k])
+        model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2)
 
     # 石数予算制約（あれば）
     if stone_budget is not None:
@@ -54,11 +56,11 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
                 model.add_constr(Ymin[k] <= j + (1 - x[i][j][k]) * n)
                 model.add_constr(Ymax[k] >= j - (1 - x[i][j][k]) * n)
 
-    # 目的関数：総石数最小化
+    # 目的関数：範囲最小化
     model.objective = xsum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m))
 
     # 解く
-    status = model.optimize(max_seconds=30)
+    status = model.optimize(max_seconds=max_seconds)
 
     # 結果を assignment 行列に変換
     assignment = np.zeros((n, n), dtype=int)
@@ -66,5 +68,5 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
         for j in range(n):
             for k in range(m):
                 if x[i][j][k].x >= 0.5:
-                    assignment[i, j] = k
+                    assignment[i, j] = k + 1
     return assignment

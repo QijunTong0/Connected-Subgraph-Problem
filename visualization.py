@@ -16,7 +16,7 @@ def generate_data(n, m, cell_value_range=(1, 9), req_range=None, seed=None):
     low, high = cell_value_range
     grid = np.random.randint(low, high + 1, size=(n, n))
     if req_range is None:
-        req_low, req_high = 0, int(n * n * high / m / 3)
+        req_low, req_high = 0, int(n * n * high / m)
     else:
         req_low, req_high = req_range
     requirements = np.random.randint(req_low, req_high + 1, size=m)
@@ -30,15 +30,15 @@ def visualize_solution(grid, assignment, filename):
     assignment: n×n array of ints in {0,1,...,m}
     """
     n = grid.shape[0]
-    m = assignment.max() + 1
+    m = assignment.max()
     base_colors = list(plt.cm.get_cmap("tab20").colors)
-    cmap = colors.ListedColormap(base_colors[:m])
+    cmap = colors.ListedColormap(["white"] + base_colors[:m])
 
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.pcolormesh(assignment, cmap=cmap, edgecolors="k", linewidth=0.5)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title(f"Area Assignment ({n**2} blocks; {m} agents)")
+    ax.set_title(f"Assignment Result\n ({n**2} blocks; {m} agents; 30 seconds)")
     plt.gca().invert_yaxis()
     # save to file
     plt.savefig(filename, bbox_inches="tight")
