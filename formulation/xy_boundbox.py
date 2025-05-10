@@ -1,10 +1,8 @@
-# file: mip_model.py
 import numpy as np
-from mip import Model, xsum, BINARY,CONTINUOUS, OptimizationStatus
+from mip import Model, xsum, BINARY, CONTINUOUS, OptimizationStatus
 
-def solve_assignment(grid: np.ndarray,
-                     requirements: np.ndarray,
-                     stone_budget: int = None):
+
+def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None):
     """
     Solve the assignment problem via python-mip:
       - x[i,j,k] ∈ {0,1}: player k places stone on cell (i,j)
@@ -20,36 +18,31 @@ def solve_assignment(grid: np.ndarray,
     m = requirements.size
 
     # モデル作成
-    model = Model(sense='MIN')
+    model = Model(sense="MIN")
 
     # 変数 x[i,j,k]
-    x = [[[model.add_var(var_type=BINARY, name=f"x_{i}_{j}_{k}") 
-           for k in range(m)] for j in range(n)] for i in range(n)]
+    x = [
+        [[model.add_var(var_type=BINARY, name=f"x_{i}_{j}_{k}") for k in range(m)] for j in range(n)] for i in range(n)
+    ]
 
     # 各セルに一石
     for i in range(n):
         for j in range(n):
-            model.add_constr(xsum(x[i][j][k] for k in range(m)) ==1)
+            model.add_constr(xsum(x[i][j][k] for k in range(m)) == 1)
 
     # 各プレイヤの得点要件
     for k in range(m):
-        model.add_constr(
-            xsum(grid[i,j] * x[i][j][k] for i in range(n) for j in range(n))
-            >= requirements[k]
-        )
+        model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k])
 
     # 石数予算制約（あれば）
     if stone_budget is not None:
-        model.add_constr(
-            xsum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m))
-            <= stone_budget
-        )
+        model.add_constr(xsum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget)
 
     # 各プレイヤのバウンディングボックス変数
-    Xmin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Xmin_{k}") for k in range(m)]
-    Xmax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Xmax_{k}") for k in range(m)]
-    Ymin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Ymin_{k}") for k in range(m)]
-    Ymax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n-1, name=f"Ymax_{k}") for k in range(m)]
+    Xmin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Xmin_{k}") for k in range(m)]
+    Xmax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Xmax_{k}") for k in range(m)]
+    Ymin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Ymin_{k}") for k in range(m)]
+    Ymax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Ymax_{k}") for k in range(m)]
 
     # バウンディングボックス制約
     for k in range(m):
