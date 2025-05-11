@@ -10,11 +10,12 @@ uv --version
 ```
 ## MIPソルバー(HiGHS)のインストール
 https://github.com/JuliaBinaryWrappers/HiGHSstatic_jll.jl/releases
-から自分の環境にあったHiGHSバイナリをダウンロード
+から自分の環境にあったHiGHSバイナリをダウンロードし任意のディレクトリに展開する。
 
-展開したフォルダ内のbinフォルダへのパスを~/.bashrcまたはターミナルで設定する。
+実行ファイルの実行権限を付与して,展開したディレクトリ内のbinフォルダへのパスを~/.bashrcまたはターミナルで設定する。
 ```
-export PATH="$PATH:/{ダウンロードしたhighsを展開したフォルダのパス}/bin"
+chmod +x {highsを展開したディレクトリのパス}/bin/highs
+export PATH="$PATH:/{highsを展開したディレクトリのパス}/bin"
 ```
 パスが通っていることを確認。
 ```
