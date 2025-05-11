@@ -2,12 +2,12 @@ import formulation.edge_diff
 import formulation.xy_boundbox
 from visualization import generate_data, visualize_solution
 
-F_NUM = 20  # グリッドサイズ
-P_NUM = 15  # プレイヤー数
+F_NUM = 12  # グリッドサイズ
+P_NUM = 10  # プレイヤー数
 SCORE_RANGE = (1, 30)  # 各マスのスコア乱数範囲
-REQ_RANGE = (300, 900)  # 最低要求スコア乱数範囲
+REQ_RANGE = (150, 200)  # 最低要求スコア乱数範囲
 SEED = 42  # 再現用シード
-MAX_SECONDS = 30  # ソルバーの打ち切りタイムリミット
+MAX_SECONDS = 100  # ソルバーの打ち切りタイムリミット
 
 
 def main():

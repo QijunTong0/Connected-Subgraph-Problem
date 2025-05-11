@@ -1,5 +1,5 @@
 import numpy as np
-from mip import Model, xsum, BINARY, CONTINUOUS, OptimizationStatus
+from mip import Model, xsum, BINARY, CONTINUOUS
 
 
 def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds=30):
@@ -26,7 +26,7 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
         [[model.add_var(var_type=BINARY, name=f"x_{i}_{j}_{k}") for k in range(m)] for j in range(n)] for i in range(n)
     ]
 
-    # 各セルに一石
+    # 各セルに高々一石
     for i in range(n):
         for j in range(n):
             model.add_constr(xsum(x[i][j][k] for k in range(m)) <= 1)
