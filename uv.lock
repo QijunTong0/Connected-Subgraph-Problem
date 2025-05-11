@@ -37,7 +37,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.3" },
-    { name = "mip", specifier = ">=1.15.0" },
+    { name = "mip", specifier = "==1.15.0" },
     { name = "numpy", specifier = ">=2.2.5" },
     { name = "ruff", specifier = ">=0.11.9" },
 ]
