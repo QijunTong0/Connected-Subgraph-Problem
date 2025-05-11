@@ -69,7 +69,7 @@ def solve_assignment(
     prob += pulp.lpSum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m)), "min_total_bbox_range"
 
     # 9) Solve with CBC and time limit
-    solver = pulp.HiGHS_CMD(timeLimit=max_seconds, msg=False)
+    solver = pulp.HiGHS_CMD(timeLimit=max_seconds)
     prob.solve(solver)
 
     # 10) Extract assignment

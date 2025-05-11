@@ -66,7 +66,7 @@ def solve_assignment(
     prob += pulp.lpSum(z[p][k] for p in range(len(pairs)) for k in range(m)), "Minimize_adj_diff"
 
     # Solve with CBC and time limit
-    solver = pulp.HiGHS_CMD(timeLimit=max_seconds, msg=False)
+    solver = pulp.HiGHS_CMD(timeLimit=max_seconds)
     prob.solve(solver)
 
     # Build assignment matrix

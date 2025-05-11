@@ -20,11 +20,23 @@ def main():
     # 異なる定式化で結果を比較
     # 割り当てエリアの座標の幅を最小化
     assignment = edge_diff.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
-    visualize_solution(grid, assignment, seconds=MAX_SECONDS, filename="output/minimize_edge_diff.svg")
+    visualize_solution(
+        grid,
+        assignment,
+        seconds=MAX_SECONDS,
+        title="edge_diff_formulation result",
+        filename="output/minimize_edge_diff.svg",
+    )
 
     # 隣接エリアが異なる割り当てになる回数の最小化
     assignment = xy_boundbox.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
-    visualize_solution(grid, assignment, seconds=MAX_SECONDS, filename="output/minimize_xy_boundbox.svg")
+    visualize_solution(
+        grid,
+        assignment,
+        seconds=MAX_SECONDS,
+        title="xy_boundbox_formulation result",
+        filename="output/minimize_xy_boundbox.svg",
+    )
 
 
 if __name__ == "__main__":
