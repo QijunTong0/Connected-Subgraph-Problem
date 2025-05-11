@@ -1,5 +1,5 @@
 import numpy as np
-from mip import Model, xsum, BINARY, CONTINUOUS, OptimizationStatus
+from mip import BINARY, CONTINUOUS, Model, xsum
 
 
 def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds=30):
@@ -57,7 +57,7 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: i
     model.objective = xsum(z.values())
 
     # 解く
-    status = model.optimize(max_seconds=max_seconds)
+    _status = model.optimize(max_seconds=max_seconds)
 
     # 結果を assignment 行列に変換
     assignment = np.zeros((n, n), dtype=int)
