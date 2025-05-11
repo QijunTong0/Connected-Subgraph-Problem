@@ -2,67 +2,71 @@ import numpy as np
 from mip import BINARY, CONTINUOUS, Model, xsum
 
 
-def solve_assignment(grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds=30):
+def solve_assignment(
+    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30
+) -> np.ndarray:
     """
-    Solve the assignment problem via python-mip:
-      - x[i,j,k] ∈ {0,1}: player k places stone on cell (i,j)
-      - Each cell holds at most one stone
-      - Each player k's score ≥ requirements[k]
-      - Each region has at least one stone (any player)
-      - Total stones ≤ stone_budget (if provided)
-    Objective: minimize total number of stones.
+    Solve the assignment problem via python-mip.
+
+    Args:
+        grid (np.ndarray): A 2D array representing the grid, where each cell contains a score.
+        requirements (np.ndarray): A 1D array where each element represents the minimum score required for each player.
+        stone_budget (int, optional): The maximum number of stones that can be placed on the grid. Defaults to None.
+        max_seconds (int, optional): The maximum time allowed for solving the problem in seconds. Defaults to 30.
+
     Returns:
-      assignment: n×n int array (0=none, 1..m=player)
+        np.ndarray: An n×n integer array representing the assignment matrix.
+                    Each cell contains 0 (no stone) or a player index (1 to m).
     """
     n = grid.shape[0]
     m = requirements.size
 
-    # モデル作成
+    # Create the optimization model
     model = Model(sense="MIN")
     # model.verbose = 0
 
-    # 変数 x[i,j,k]
+    # Decision variables x[i,j,k]
     x = [
         [[model.add_var(var_type=BINARY, name=f"x_{i}_{j}_{k}") for k in range(m)] for j in range(n)] for i in range(n)
     ]
 
-    # 各セルに高々一石
+    # Constraint: Each cell can hold at most one stone
     for i in range(n):
         for j in range(n):
             model.add_constr(xsum(x[i][j][k] for k in range(m)) <= 1)
 
-    # 各プレイヤの得点要件
+    # Constraint: Each player's score must meet or exceed their requirement
     for k in range(m):
         model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k])
         model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2)
 
-    # 石数予算制約（あれば）
+    # Constraint: Total number of stones must not exceed the stone budget (if provided)
     if stone_budget is not None:
         model.add_constr(xsum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget)
 
-    # 各プレイヤのバウンディングボックス変数
+    # Bounding box variables for each player
     Xmin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Xmin_{k}") for k in range(m)]
     Xmax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Xmax_{k}") for k in range(m)]
     Ymin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Ymin_{k}") for k in range(m)]
     Ymax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Ymax_{k}") for k in range(m)]
 
-    # バウンディングボックス制約
+    # Bounding box constraints
     for k in range(m):
         for i in range(n):
             for j in range(n):
-                # if x=1 then Xmin <= i <= Xmax, Ymin <= j <= Ymax
+                # If x=1 then Xmin <= i <= Xmax, Ymin <= j <= Ymax
                 model.add_constr(Xmin[k] <= i + (1 - x[i][j][k]) * n)
                 model.add_constr(Xmax[k] >= i - (1 - x[i][j][k]) * n)
                 model.add_constr(Ymin[k] <= j + (1 - x[i][j][k]) * n)
                 model.add_constr(Ymax[k] >= j - (1 - x[i][j][k]) * n)
 
-    # 目的関数：範囲最小化
+    # Objective function: Minimize the range
     model.objective = xsum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m))
 
-    # 解く
+    # Solve the problem
     _status = model.optimize(max_seconds=max_seconds)
 
-    # 結果を assignment 行列に変換
+    # Convert the result to an assignment matrix
     assignment = np.zeros((n, n), dtype=int)
     for i in range(n):
         for j in range(n):

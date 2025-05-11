@@ -1,15 +1,30 @@
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
 
 
-def generate_data(n, m, cell_value_range=(1, 9), req_range=None, seed=None):
+def generate_data(
+    n: int,
+    m: int,
+    cell_value_range: tuple[int, int] = (1, 9),
+    req_range: tuple[int, int] | None = None,
+    seed: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Generate random input data for the assignment problem.
 
+    Args:
+        n (int): The dimension of the grid (n x n).
+        m (int): The number of agents or requirements.
+        cell_value_range (Tuple[int, int], optional): Range of cell values in the grid (inclusive). Defaults to (1, 9).
+        req_range (Optional[Tuple[int, int]], optional): Range of requirement values (inclusive). Defaults to None.
+        seed (Optional[int], optional): Seed for random number generation. Defaults to None.
+
     Returns:
-      grid: n×n ndarray of ints
-      requirements: length-m ndarray of ints
+        Tuple[np.ndarray, np.ndarray]: A tuple containing:
+            - grid (np.ndarray): A n×n array of integers representing the grid.
+            - requirements (np.ndarray): A length-m array of integers representing requirements.
     """
     if seed is not None:
         np.random.seed(seed)
@@ -23,11 +38,18 @@ def generate_data(n, m, cell_value_range=(1, 9), req_range=None, seed=None):
     return grid, requirements
 
 
-def visualize_solution(grid, assignment, seconds, filename):
+def visualize_solution(grid: np.ndarray, assignment: np.ndarray, seconds: float, filename: str) -> None:
     """
     Visualize an assignment.
 
-    assignment: n×n array of ints in {0,1,...,m}
+    Args:
+        grid (np.ndarray): A n×n array of integers representing the grid.
+        assignment (np.ndarray): A n×n array of integers in {0, 1, ..., m}, representing assignment of blocks to agents.
+        seconds (float): Time taken to compute the solution (in seconds).
+        filename (str): The file path to save the visualization.
+
+    Returns:
+        None
     """
     n = grid.shape[0]
     m = assignment.max()
