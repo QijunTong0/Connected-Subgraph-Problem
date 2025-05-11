@@ -1,13 +1,14 @@
 from formulation import edge_diff, xy_boundbox
 from utils import generate_data, visualize_solution
+import numpy as np
 
 # パラメータ
 F_NUM = 12  # グリッドサイズ
-P_NUM = 10  # プレイヤー数
+P_NUM = 12  # プレイヤー数
 SCORE_RANGE = (1, 30)  # 各マスのスコア乱数範囲
 REQ_RANGE = (150, 200)  # 最低要求スコア乱数範囲
 SEED = 42  # 再現用シード
-MAX_SECONDS = 1800  # ソルバーの打ち切りタイムリミット
+MAX_SECONDS = 60  # ソルバーの打ち切りタイムリミット
 
 
 def main():
@@ -23,18 +24,19 @@ def main():
     visualize_solution(
         grid,
         assignment,
+        reqs,
         seconds=MAX_SECONDS,
-        title="edge_diff_formulation result",
+        title="edge_diff_minimize result",
         filename="output/minimize_edge_diff.svg",
     )
-
     # 隣接エリアが異なる割り当てになる回数の最小化
     assignment = xy_boundbox.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
     visualize_solution(
         grid,
         assignment,
+        reqs,
         seconds=MAX_SECONDS,
-        title="xy_boundbox_formulation result",
+        title="xy_boundbox_minimize result",
         filename="output/minimize_xy_boundbox.svg",
     )
 
