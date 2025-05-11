@@ -1,5 +1,5 @@
 from formulation import edge_diff, xy_boundbox
-from visualization import generate_data, visualize_solution
+from utils import generate_data, visualize_solution
 
 # パラメータ
 F_NUM = 12  # グリッドサイズ
