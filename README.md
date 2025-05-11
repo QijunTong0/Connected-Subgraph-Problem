@@ -21,6 +21,12 @@ export PATH="$PATH:/{ダウンロードしたhighsを展開したフォルダの
 highs --version
 ```
 
+## 最適化の実行
+
+```
+uv run main.py
+```
+
 
 # グリッド割り当て問題の定式化
 
