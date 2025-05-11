@@ -1,80 +1,80 @@
 import numpy as np
-from mip import BINARY, CONTINUOUS, Model, xsum
+import pulp
 
 
 def solve_assignment(
     grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30
 ) -> np.ndarray:
     """
-    Solve the assignment problem via python-mip:
+    Solve the assignment problem via PuLP:
       - x[i,j,k] ∈ {0,1}: player k places stone on cell (i,j)
       - Each cell holds at most one stone
-      - Each player k's score ≥ requirements[k]
-      - Each region has at least one stone (any player)
+      - Each player k's score ∈ [requirements[k], requirements[k]*1.2]
       - Total stones ≤ stone_budget (if provided)
-    Objective: minimize total number of stones.
-
-    Args:
-        grid (np.ndarray): A 2D array representing the grid values.
-        requirements (np.ndarray): A 1D array containing the score requirements for each player.
-        stone_budget (int, optional): The maximum number of stones allowed. Defaults to None.
-        max_seconds (int, optional): The maximum time allowed for the solver to run. Defaults to 30.
-
-    Returns:
-        np.ndarray: An n×n integer array where 0 indicates no stone, and 1..m indicates the player ID.
+      - Objective: minimize sum of |x(i1,j1,k) - x(i2,j2,k)| over all adjacent pairs
+    Returns an (n×n) array where 0 indicates no stone, and 1..m indicates the player ID.
     """
     n = grid.shape[0]
     m = requirements.size
 
-    # Create optimization model
-    model = Model(sense="MIN")
-    # model.verbose = 0
+    # Create problem
+    prob = pulp.LpProblem("assignment", pulp.LpMinimize)
 
-    # Variables x[i,j,k]
-    x = [
-        [[model.add_var(var_type=BINARY, name=f"x_{i}_{j}_{k}") for k in range(m)] for j in range(n)] for i in range(n)
-    ]
+    # Decision variables x[i][j][k]
+    x = pulp.LpVariable.dicts("x", (range(n), range(n), range(m)), cat=pulp.LpBinary)
 
     # At most one stone per cell
     for i in range(n):
         for j in range(n):
-            model.add_constr(xsum(x[i][j][k] for k in range(m)) <= 1)
+            prob += pulp.lpSum(x[i][j][k] for k in range(m)) <= 1, f"one_stone_{i}_{j}"
 
-    # Each player's score requirements
+    # Score requirements for each player
     for k in range(m):
-        model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k])
-        model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2)
+        prob += (
+            pulp.lpSum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k],
+            f"min_score_player_{k}",
+        )
+        prob += (
+            pulp.lpSum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2,
+            f"max_score_player_{k}",
+        )
 
-    # Stone budget constraint (if provided)
+    # Total stone budget
     if stone_budget is not None:
-        model.add_constr(xsum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget)
+        prob += (
+            pulp.lpSum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget,
+            "stone_budget",
+        )
 
+    # Build list of adjacent cell pairs (horizontal & vertical)
     pairs = []
     for i in range(n - 1):
         for j in range(n - 1):
             pairs.append(((i, j), (i + 1, j)))
             pairs.append(((i, j), (i, j + 1)))
 
-    # z[pair_idx, k]: Within a pair, both being the same player's stone results in 0
-    z = {}
+    # Auxiliary vars z[p][k] to linearize |x1 - x2|
+    z = pulp.LpVariable.dicts("z", (range(len(pairs)), range(m)), lowBound=0, upBound=1, cat=pulp.LpContinuous)
+
+    # Linearization constraints
     for p, ((i1, j1), (i2, j2)) in enumerate(pairs):
         for k in range(m):
-            z[p, k] = model.add_var(var_type=CONTINUOUS, name=f"z_{p}_{k}", ub=1)
-            # Linearization: z <= x1, z <= x2, z >= x1 + x2 -1
-            model.add_constr(z[p, k] >= x[i1][j1][k] - x[i2][j2][k])
-            model.add_constr(z[p, k] >= x[i2][j2][k] - x[i1][j1][k])
+            prob += z[p][k] >= x[i1][j1][k] - x[i2][j2][k], f"z_ge_diff1_{p}_{k}"
+            prob += z[p][k] >= x[i2][j2][k] - x[i1][j1][k], f"z_ge_diff2_{p}_{k}"
 
-    # Objective function: Minimize total number of stones
-    model.objective = xsum(z.values())
+    # Objective: minimize total adjacency differences
+    prob += pulp.lpSum(z[p][k] for p in range(len(pairs)) for k in range(m)), "Minimize_adj_diff"
 
-    # Solve
-    _status = model.optimize(max_seconds=max_seconds)
+    # Solve with CBC and time limit
+    solver = pulp.HiGHS_CMD(timeLimit=max_seconds)
+    prob.solve(solver)
 
-    # Convert results into an assignment matrix
+    # Build assignment matrix
     assignment = np.zeros((n, n), dtype=int)
     for i in range(n):
         for j in range(n):
             for k in range(m):
-                if x[i][j][k].x >= 0.5:
+                if pulp.value(x[i][j][k]) >= 0.5:
                     assignment[i, j] = k + 1
+
     return assignment

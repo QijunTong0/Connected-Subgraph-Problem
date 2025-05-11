@@ -1,76 +1,83 @@
 import numpy as np
-from mip import BINARY, CONTINUOUS, Model, xsum
+import pulp
 
 
 def solve_assignment(
     grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30
 ) -> np.ndarray:
     """
-    Solve the assignment problem via python-mip.
+    Solve the assignment problem via PuLP, with minimum enclosing bounding‐box objective.
 
     Args:
-        grid (np.ndarray): A 2D array representing the grid, where each cell contains a score.
-        requirements (np.ndarray): A 1D array where each element represents the minimum score required for each player.
-        stone_budget (int, optional): The maximum number of stones that can be placed on the grid. Defaults to None.
-        max_seconds (int, optional): The maximum time allowed for solving the problem in seconds. Defaults to 30.
+        grid (np.ndarray): n×n array of cell scores.
+        requirements (np.ndarray): length‐m array of minimum scores per player.
+        stone_budget (int, optional): max total stones. Defaults to None.
+        max_seconds (int, optional): solver time limit in seconds. Defaults to 30.
 
     Returns:
-        np.ndarray: An n×n integer array representing the assignment matrix.
-                    Each cell contains 0 (no stone) or a player index (1 to m).
+        np.ndarray: n×n integer array. 0=no stone, 1..m=player index.
     """
     n = grid.shape[0]
     m = requirements.size
 
-    # Create the optimization model
-    model = Model(sense="MIN")
-    # model.verbose = 0
+    # 1) Build problem
+    prob = pulp.LpProblem("assignment_bbox", pulp.LpMinimize)
 
-    # Decision variables x[i,j,k]
-    x = [
-        [[model.add_var(var_type=BINARY, name=f"x_{i}_{j}_{k}") for k in range(m)] for j in range(n)] for i in range(n)
-    ]
+    # 2) Decision vars x[i,j,k] ∈ {0,1}
+    x = pulp.LpVariable.dicts("x", (range(n), range(n), range(m)), cat=pulp.LpBinary)
 
-    # Constraint: Each cell can hold at most one stone
+    # 3) Each cell holds at most one stone
     for i in range(n):
         for j in range(n):
-            model.add_constr(xsum(x[i][j][k] for k in range(m)) <= 1)
+            prob += (pulp.lpSum(x[i][j][k] for k in range(m)) <= 1, f"one_stone_{i}_{j}")
 
-    # Constraint: Each player's score must meet or exceed their requirement
+    # 4) Score requirements per player
     for k in range(m):
-        model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k])
-        model.add_constr(xsum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2)
+        prob += (
+            pulp.lpSum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k],
+            f"min_score_{k}",
+        )
+        prob += (
+            pulp.lpSum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2,
+            f"max_score_{k}",
+        )
 
-    # Constraint: Total number of stones must not exceed the stone budget (if provided)
+    # 5) Total stone budget
     if stone_budget is not None:
-        model.add_constr(xsum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget)
+        prob += (
+            pulp.lpSum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget,
+            "stone_budget",
+        )
 
-    # Bounding box variables for each player
-    Xmin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Xmin_{k}") for k in range(m)]
-    Xmax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Xmax_{k}") for k in range(m)]
-    Ymin = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Ymin_{k}") for k in range(m)]
-    Ymax = [model.add_var(var_type=CONTINUOUS, lb=0, ub=n - 1, name=f"Ymax_{k}") for k in range(m)]
-
-    # Bounding box constraints
+    # 6) Bounding‐box variables for each player
+    Xmin = [pulp.LpVariable(f"Xmin_{k}", lowBound=0, upBound=n - 1, cat=pulp.LpContinuous) for k in range(m)]
+    Xmax = [pulp.LpVariable(f"Xmax_{k}", lowBound=0, upBound=n - 1, cat=pulp.LpContinuous) for k in range(m)]
+    Ymin = [pulp.LpVariable(f"Ymin_{k}", lowBound=0, upBound=n - 1, cat=pulp.LpContinuous) for k in range(m)]
+    Ymax = [pulp.LpVariable(f"Ymax_{k}", lowBound=0, upBound=n - 1, cat=pulp.LpContinuous) for k in range(m)]
+    # 7) Bounding‐box linearization
+    #    If x[i,j,k]=1 then Xmin[k] ≤ i ≤ Xmax[k], Ymin[k] ≤ j ≤ Ymax[k]
+    #    → Xmin[k] ≤ i + (1−x)*n,  Xmax[k] ≥ i − (1−x)*n, etc.
     for k in range(m):
         for i in range(n):
             for j in range(n):
-                # If x=1 then Xmin <= i <= Xmax, Ymin <= j <= Ymax
-                model.add_constr(Xmin[k] <= i + (1 - x[i][j][k]) * n)
-                model.add_constr(Xmax[k] >= i - (1 - x[i][j][k]) * n)
-                model.add_constr(Ymin[k] <= j + (1 - x[i][j][k]) * n)
-                model.add_constr(Ymax[k] >= j - (1 - x[i][j][k]) * n)
+                prob += Xmin[k] <= i + (1 - x[i][j][k]) * n, f"bbox_xmin_{k}_{i}_{j}"
+                prob += Xmax[k] >= i - (1 - x[i][j][k]) * n, f"bbox_xmax_{k}_{i}_{j}"
+                prob += Ymin[k] <= j + (1 - x[i][j][k]) * n, f"bbox_ymin_{k}_{i}_{j}"
+                prob += Ymax[k] >= j - (1 - x[i][j][k]) * n, f"bbox_ymax_{k}_{i}_{j}"
 
-    # Objective function: Minimize the range
-    model.objective = xsum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m))
+    # 8) Objective: minimize total range sum
+    prob += pulp.lpSum((Xmax[k] - Xmin[k]) + (Ymax[k] - Ymin[k]) for k in range(m)), "min_total_bbox_range"
 
-    # Solve the problem
-    _status = model.optimize(max_seconds=max_seconds)
+    # 9) Solve with CBC and time limit
+    solver = pulp.HiGHS_CMD(timeLimit=max_seconds)
+    prob.solve(solver)
 
-    # Convert the result to an assignment matrix
+    # 10) Extract assignment
     assignment = np.zeros((n, n), dtype=int)
     for i in range(n):
         for j in range(n):
             for k in range(m):
-                if x[i][j][k].x >= 0.5:
+                if pulp.value(x[i][j][k]) >= 0.5:
                     assignment[i, j] = k + 1
+
     return assignment

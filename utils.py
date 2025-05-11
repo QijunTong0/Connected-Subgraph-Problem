@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
@@ -38,7 +37,13 @@ def generate_data(
     return grid, requirements
 
 
-def visualize_solution(grid: np.ndarray, assignment: np.ndarray, seconds: float, filename: str) -> None:
+def visualize_solution(
+    grid: np.ndarray,
+    assignment: np.ndarray,
+    seconds: float,
+    title: str,
+    filename: str,
+) -> None:
     """
     Visualize an assignment.
 
@@ -46,6 +51,7 @@ def visualize_solution(grid: np.ndarray, assignment: np.ndarray, seconds: float,
         grid (np.ndarray): A n×n array of integers representing the grid.
         assignment (np.ndarray): A n×n array of integers in {0, 1, ..., m}, representing assignment of blocks to agents.
         seconds (float): Time taken to compute the solution (in seconds).
+        title (str): Title of the visualization.
         filename (str): The file path to save the visualization.
 
     Returns:
@@ -60,7 +66,7 @@ def visualize_solution(grid: np.ndarray, assignment: np.ndarray, seconds: float,
     ax.pcolormesh(assignment, cmap=cmap, edgecolors="k", linewidth=0.5)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_title(f"Assignment Result\n ({n**2} blocks; {m} agents; {seconds} seconds)")
+    ax.set_title(f"{title}\n ({n**2} blocks; {m} agents; {seconds} seconds)")
     plt.gca().invert_yaxis()
     # save to file
     plt.savefig(filename, bbox_inches="tight")
