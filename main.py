@@ -1,4 +1,4 @@
-from formulation import boundbox, edge_diff
+from formulation import boundbox, edge_diff, heuristic
 from utils import generate_data, visualize_solution
 
 # パラメータ
@@ -18,6 +18,17 @@ def main():
     print("Player requirements:", reqs)
 
     # 異なる定式化で結果を比較
+    assignment = heuristic.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
+    visualize_solution(
+        grid,
+        assignment,
+        reqs,
+        seconds=MAX_SECONDS,
+        title="minimize edge_diff result",
+        filename="output/minimize_edge_diff_heuristic.svg",
+    )
+
+    return 0
     # 割り当てエリアの座標の幅を最小化
     assignment = edge_diff.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
     visualize_solution(

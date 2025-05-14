@@ -49,7 +49,7 @@ def solve_initial_assignment(
     # Objective: minimize total adjacency differences
     prob += 1
 
-    # Solve with CBC and time limit
+    # Solve with HiGHS and time limit
     solver = pulp.HiGHS_CMD(timeLimit=max_seconds)
     prob.solve(solver)
 
@@ -64,7 +64,7 @@ def solve_initial_assignment(
     return assignment
 
 
-def swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> None:
+def try_swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> None:
     """
     Swap the elements at positions pos1 and pos2 in the assignment array in-place.
 
@@ -75,4 +75,30 @@ def swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> None:
     """
     r1, c1 = pos1
     r2, c2 = pos2
+    curr_score = calc_local_score(assignment, r1, c1) + calc_local_score(assignment, r2, c2)
     assignment[r1, c1], assignment[r2, c2] = assignment[r2, c2], assignment[r1, c1]
+    next_score = calc_local_score(assignment, r1, c1) + calc_local_score(assignment, r2, c2)
+    if next_score <= curr_score:
+        assignment[r1, c1], assignment[r2, c2] = assignment[r2, c2], assignment[r1, c1]
+
+
+def calc_local_score(assignment: np.ndarray, r: int, c: int) -> None:
+    h, w = assignment.shape
+    score = 0
+    score += assignment[r, c] != assignment[r, min(h - 1, c + 1)]
+    score += assignment[r, c] != assignment[r, max(0, c - 1)]
+    score += assignment[r, c] != assignment[min(w - 1, r + 1), c]
+    score += assignment[r, c] != assignment[max(0, r - 1), c]
+    return score
+
+
+def solve_assignment(
+    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30, max_iter=10000
+) -> np.ndarray:
+    assignment = solve_initial_assignment(grid, requirements, max_seconds=max_seconds)
+    h, w = assignment.shape
+    for _ in range(max_iter):
+        pos1 = np.random.randint(0, h), np.random.randint(0, w)
+        pos2 = np.random.randint(0, h), np.random.randint(0, w)
+        try_swap_assignment(assignment, pos1, pos2)
+    return assignment
