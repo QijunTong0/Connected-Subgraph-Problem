@@ -78,8 +78,51 @@ def try_swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> Non
     curr_score = calc_local_score(assignment, r1, c1) + calc_local_score(assignment, r2, c2)
     assignment[r1, c1], assignment[r2, c2] = assignment[r2, c2], assignment[r1, c1]
     next_score = calc_local_score(assignment, r1, c1) + calc_local_score(assignment, r2, c2)
-    if next_score <= curr_score:
+    if next_score >= curr_score:
         assignment[r1, c1], assignment[r2, c2] = assignment[r2, c2], assignment[r1, c1]
+        return False
+    else:
+        return True
+
+
+def try_change_single_assigment(assignment: np.ndarray, pos: tuple, new_value: int) -> bool:
+    """
+    Try changing the assignment at position pos to new_value.
+    If the total local score (for pos and its neighbors) is reduced, keep the change and return True.
+    Otherwise, revert and return False.
+
+    Parameters:
+        assignment (np.ndarray): 2D numpy array representing the assignment.
+        pos (tuple): (row, col) index of the element to change.
+        new_value (int): The new value to try assigning.
+
+    Returns:
+        bool: True if the change is kept (score reduced), False otherwise.
+    """
+    h, w = assignment.shape
+    r, c = pos
+    # Get affected positions: pos and its four neighbors
+    affected = [(r, c)]
+    if r > 0:
+        affected.append((r - 1, c))
+    if r < h - 1:
+        affected.append((r + 1, c))
+    if c > 0:
+        affected.append((r, c - 1))
+    if c < w - 1:
+        affected.append((r, c + 1))
+    # Compute current total local score
+    curr_score = sum(calc_local_score(assignment, rr, cc) for rr, cc in affected)
+    # Store old value and apply new value
+    old_value = assignment[r, c]
+    assignment[r, c] = new_value
+    # Compute new total local score
+    new_score = sum(calc_local_score(assignment, rr, cc) for rr, cc in affected)
+    if new_score < curr_score:
+        return True
+    else:
+        assignment[r, c] = old_value
+        return False
 
 
 def calc_local_score(assignment: np.ndarray, r: int, c: int) -> None:
@@ -93,12 +136,12 @@ def calc_local_score(assignment: np.ndarray, r: int, c: int) -> None:
 
 
 def solve_assignment(
-    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30, max_iter=10000
+    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30, max_iter=100000
 ) -> np.ndarray:
     assignment = solve_initial_assignment(grid, requirements, max_seconds=max_seconds)
     h, w = assignment.shape
     for _ in range(max_iter):
-        pos1 = np.random.randint(0, h), np.random.randint(0, w)
-        pos2 = np.random.randint(0, h), np.random.randint(0, w)
+        pos1 = (np.random.randint(0, h), np.random.randint(0, w))
+        pos2 = (np.random.randint(0, h), np.random.randint(0, w))
         try_swap_assignment(assignment, pos1, pos2)
     return assignment

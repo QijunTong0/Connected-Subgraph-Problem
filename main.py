@@ -4,7 +4,7 @@ from utils import generate_data, visualize_solution
 # パラメータ
 F_NUM = 12  # グリッドサイズ
 P_NUM = 12  # プレイヤー数
-SCORE_RANGE = (1, 30)  # 各マスのスコア乱数範囲
+SCORE_RANGE = (10, 20)  # 各マスのスコア乱数範囲
 REQ_RANGE = (150, 200)  # 最低要求スコア乱数範囲
 SEED = 42  # 再現用シード
 MAX_SECONDS = 60  # ソルバーの打ち切りタイムリミット
