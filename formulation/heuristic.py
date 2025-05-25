@@ -1,6 +1,7 @@
 import numpy as np
 import pulp
 from tqdm import tqdm
+import numba
 
 
 def solve_initial_assignment(
@@ -86,7 +87,7 @@ def try_swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> Non
         return True
 
 
-def try_change_single_assigment(assignment: np.ndarray, pos: tuple, assign_max: int) -> bool:
+def try_change_single_assigment(assignment: np.ndarray, pos: tuple, new_value: int) -> bool:
     """
     Randomly change the assignment at position pos to a different value from possible_values.
     If the total local score (for pos and its neighbors) is reduced, keep the change and return True.
@@ -100,13 +101,10 @@ def try_change_single_assigment(assignment: np.ndarray, pos: tuple, assign_max: 
     Returns:
         bool: True if the change is kept (score reduced), False otherwise.
     """
-    import numpy as np
 
-    h, w = assignment.shape
     r, c = pos
     old_value = assignment[r, c]
     # Exclude the current value from possible choices
-    new_value = np.random.randint(0, assign_max)
     # Get affected positions: pos and its four neighbors
     curr_score = calc_local_score(assignment, r, c)
     # Apply new value
@@ -120,13 +118,19 @@ def try_change_single_assigment(assignment: np.ndarray, pos: tuple, assign_max: 
         return False
 
 
-def calc_local_score(assignment: np.ndarray, r: int, c: int) -> None:
+@numba.njit
+def calc_local_score(assignment: np.ndarray, r: int, c: int) -> int:
     h, w = assignment.shape
     score = 0
-    score += assignment[r, c] != assignment[r, min(h - 1, c + 1)]
-    score += assignment[r, c] != assignment[r, max(0, c - 1)]
-    score += assignment[r, c] != assignment[min(w - 1, r + 1), c]
-    score += assignment[r, c] != assignment[max(0, r - 1), c]
+    # Use explicit bounds checking for Numba compatibility
+    if c + 1 < w:
+        score += assignment[r, c] != assignment[r, c + 1]
+    if c - 1 >= 0:
+        score += assignment[r, c] != assignment[r, c - 1]
+    if r + 1 < h:
+        score += assignment[r, c] != assignment[r + 1, c]
+    if r - 1 >= 0:
+        score += assignment[r, c] != assignment[r - 1, c]
     return score
 
 
@@ -136,9 +140,11 @@ def solve_assignment(
     assignment = solve_initial_assignment(grid, requirements, max_seconds=max_seconds)
     h, w = assignment.shape
     assign_num = len(requirements) + 1
-    for _ in tqdm(range(max_iter)):
-        pos1 = (np.random.randint(0, h), np.random.randint(0, w))
-        pos2 = (np.random.randint(0, h), np.random.randint(0, w))
-        try_swap_assignment(assignment, pos1, pos2)
-        try_change_single_assigment(assignment, pos1, assign_num)
+    pos1 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
+    pos2 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
+    pos3 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
+    assign_num = np.random.randint(0, assign_num + 1, size=max_iter)
+    for i in tqdm(range(max_iter)):
+        try_swap_assignment(assignment, pos1[i], pos2[i])
+        try_change_single_assigment(assignment, pos3[i], assign_num[i])
     return assignment
