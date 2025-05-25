@@ -1,7 +1,7 @@
+import numba
 import numpy as np
 import pulp
 from tqdm import tqdm
-import numba
 
 
 def solve_initial_assignment(
