@@ -1,5 +1,6 @@
 import numpy as np
 import pulp
+from tqdm import tqdm
 
 
 def solve_initial_assignment(
@@ -85,39 +86,33 @@ def try_swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> Non
         return True
 
 
-def try_change_single_assigment(assignment: np.ndarray, pos: tuple, new_value: int) -> bool:
+def try_change_single_assigment(assignment: np.ndarray, pos: tuple, assign_max: int) -> bool:
     """
-    Try changing the assignment at position pos to new_value.
+    Randomly change the assignment at position pos to a different value from possible_values.
     If the total local score (for pos and its neighbors) is reduced, keep the change and return True.
     Otherwise, revert and return False.
 
     Parameters:
         assignment (np.ndarray): 2D numpy array representing the assignment.
         pos (tuple): (row, col) index of the element to change.
-        new_value (int): The new value to try assigning.
+        possible_values (list or np.ndarray): List/array of possible values to assign.
 
     Returns:
         bool: True if the change is kept (score reduced), False otherwise.
     """
+    import numpy as np
+
     h, w = assignment.shape
     r, c = pos
-    # Get affected positions: pos and its four neighbors
-    affected = [(r, c)]
-    if r > 0:
-        affected.append((r - 1, c))
-    if r < h - 1:
-        affected.append((r + 1, c))
-    if c > 0:
-        affected.append((r, c - 1))
-    if c < w - 1:
-        affected.append((r, c + 1))
-    # Compute current total local score
-    curr_score = sum(calc_local_score(assignment, rr, cc) for rr, cc in affected)
-    # Store old value and apply new value
     old_value = assignment[r, c]
+    # Exclude the current value from possible choices
+    new_value = np.random.randint(0, assign_max)
+    # Get affected positions: pos and its four neighbors
+    curr_score = calc_local_score(assignment, r, c)
+    # Apply new value
     assignment[r, c] = new_value
     # Compute new total local score
-    new_score = sum(calc_local_score(assignment, rr, cc) for rr, cc in affected)
+    new_score = calc_local_score(assignment, r, c)
     if new_score < curr_score:
         return True
     else:
@@ -136,12 +131,14 @@ def calc_local_score(assignment: np.ndarray, r: int, c: int) -> None:
 
 
 def solve_assignment(
-    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30, max_iter=100000
+    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30, max_iter=1000000
 ) -> np.ndarray:
     assignment = solve_initial_assignment(grid, requirements, max_seconds=max_seconds)
     h, w = assignment.shape
-    for _ in range(max_iter):
+    assign_num = len(requirements) + 1
+    for _ in tqdm(range(max_iter)):
         pos1 = (np.random.randint(0, h), np.random.randint(0, w))
         pos2 = (np.random.randint(0, h), np.random.randint(0, w))
         try_swap_assignment(assignment, pos1, pos2)
+        try_change_single_assigment(assignment, pos1, assign_num)
     return assignment
