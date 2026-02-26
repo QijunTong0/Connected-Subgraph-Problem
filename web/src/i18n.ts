@@ -1,5 +1,8 @@
 // i18n.ts — JA / EN translations
 
+import renderMathInElement from "katex/contrib/auto-render";
+import "katex/dist/katex.min.css";
+
 export type Lang = "ja" | "en";
 
 const translations: Record<Lang, Record<string, string>> = {
@@ -16,18 +19,18 @@ const translations: Record<Lang, Record<string, string>> = {
       "各プレイヤーの領域を連結にまとめることを目指す問題です。",
 
     "desc.subtitle.problem":     "問題設定",
-    "desc.list.problem.1":       "グリッド: n×nのマス目；各マス(i,j)はスコアg<sub>ij</sub>を持つ",
+    "desc.list.problem.1":       "グリッド: n×nのマス目；各マス(i,j)はスコア\\(g_{ij}\\)を持つ",
     "desc.list.problem.2":       "mプレイヤーがそれぞれマスのサブセットを占有する",
     "desc.list.problem.3":       "各マスは<em>最大1個</em>の石しか置けない",
-    "desc.list.problem.4":       "プレイヤーkのスコア = 占有マスのΣg<sub>ij</sub>",
+    "desc.list.problem.4":       "プレイヤーkのスコア = 占有マスの\\(\\sum g_{ij}\\)",
 
     "desc.subtitle.constraints": "制約",
-    "desc.list.constraints.1":   "R<sub>k</sub> ≤ score<sub>k</sub> ≤ 1.2 · R<sub>k</sub>　∀k",
+    "desc.list.constraints.1":   "\\(R_k \\leq \\mathrm{score}_k \\leq 1.2 \\cdot R_k \\quad \\forall k\\)",
     "desc.list.constraints.2":   "各プレイヤーの石は<em>連結</em>な領域を形成すること",
 
     "desc.subtitle.objective":   "目的関数",
     "desc.formula.html":
-      "<strong>edge_diff</strong> を最小化 =<br>" +
+      "\\(\\text{edge\\_diff}\\) を最小化 =<br>" +
       "異なるプレイヤーが隣接するマスのペア数",
     "desc.note": "境界エッジが少ないほど → よりコンパクト / 連結な領域",
 
@@ -112,18 +115,18 @@ const translations: Record<Lang, Record<string, string>> = {
       "while keeping their occupied regions compact.",
 
     "desc.subtitle.problem":     "Problem setting",
-    "desc.list.problem.1":       "Grid: n×n cells; each cell (i,j) has score g<sub>ij</sub>",
+    "desc.list.problem.1":       "Grid: n×n cells; each cell (i,j) has score \\(g_{ij}\\)",
     "desc.list.problem.2":       "m players each claim a subset of cells",
     "desc.list.problem.3":       "Each cell holds <em>at most 1 stone</em>",
-    "desc.list.problem.4":       "Player k's score = Σ g<sub>ij</sub> over claimed cells",
+    "desc.list.problem.4":       "Player k's score = \\(\\sum g_{ij}\\) over claimed cells",
 
     "desc.subtitle.constraints": "Constraints",
-    "desc.list.constraints.1":   "R<sub>k</sub> ≤ score<sub>k</sub> ≤ 1.2 · R<sub>k</sub>&nbsp;&nbsp;∀k",
+    "desc.list.constraints.1":   "\\(R_k \\leq \\mathrm{score}_k \\leq 1.2 \\cdot R_k \\quad \\forall k\\)",
     "desc.list.constraints.2":   "Each player's stones should form a <em>connected</em> region",
 
     "desc.subtitle.objective":   "Objective",
     "desc.formula.html":
-      "Minimize <strong>edge_diff</strong> =<br>" +
+      "Minimize \\(\\text{edge\\_diff}\\) =<br>" +
       "# adjacent cell pairs owned by <em>different</em> players",
     "desc.note": "Fewer boundary edges → more compact / connected regions.",
 
@@ -227,4 +230,16 @@ export function applyLang(): void {
   document.querySelectorAll<HTMLButtonElement>("[data-lang-btn]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.langBtn === currentLang);
   });
+
+  // Re-render LaTeX in the description panel after DOM update
+  const descPanel = document.querySelector<HTMLElement>(".panel-desc");
+  if (descPanel) {
+    renderMathInElement(descPanel, {
+      delimiters: [
+        { left: "\\(", right: "\\)", display: false },
+        { left: "\\[", right: "\\]", display: true },
+      ],
+      throwOnError: false,
+    });
+  }
 }
