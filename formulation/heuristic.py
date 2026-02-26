@@ -4,6 +4,7 @@ import numpy as np
 def initial_assignment(
     grid: np.ndarray,
     requirements: np.ndarray,
+    max_seconds: int = 30,
 ) -> np.ndarray:
     """
       - x[i,j,k] ∈ {0,1}: player k places stone on cell (i,j)
@@ -14,9 +15,40 @@ def initial_assignment(
     n = grid.shape[0]
     m = requirements.size
 
-    # Build assignment matrix
     assignment = np.zeros((n, n), dtype=int)
-    # FIXME:implement initial assignment
+    upper_bounds = (requirements * 1.2).astype(int)
+    scores = np.zeros(m, dtype=int)
+    satisfied = np.zeros(m, dtype=bool)
+
+    # Process cells in descending order of value
+    sorted_indices = np.argsort(grid.flatten())[::-1]
+
+    for flat_idx in sorted_indices:
+        if satisfied.all():
+            break
+
+        row = flat_idx // n
+        col = flat_idx % n
+        value = grid[row, col]
+
+        remaining_capacity = upper_bounds - scores
+        remaining_need = requirements - scores
+
+        # Eligible: still needs more score AND this cell fits within upper bound
+        eligible = (~satisfied) & (remaining_need > 0) & (value <= remaining_capacity)
+
+        if not eligible.any():
+            continue
+
+        # Assign to the player with the tightest remaining window (smallest remaining_capacity)
+        capacity_for_choice = np.where(eligible, remaining_capacity, np.iinfo(np.int64).max)
+        chosen_k = int(np.argmin(capacity_for_choice))
+
+        assignment[row, col] = chosen_k + 1  # 1-indexed player ID
+        scores[chosen_k] += value
+
+        if scores[chosen_k] >= requirements[chosen_k]:
+            satisfied[chosen_k] = True
 
     return assignment
 
@@ -88,7 +120,7 @@ def calc_local_score(assignment: np.ndarray, r: int, c: int) -> int:
     return score
 
 
-def solve_assignment(grid: np.ndarray, requirements: np.ndarray, max_seconds: int = 30, max_iter=1000000) -> np.ndarray:
+def solve_assignment(grid: np.ndarray, requirements: np.ndarray, max_seconds: int = 30, max_iter=100000) -> np.ndarray:
     assignment = initial_assignment(grid, requirements, max_seconds=max_seconds)
     h, w = assignment.shape
     assign_num = len(requirements) + 1
