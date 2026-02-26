@@ -1,6 +1,7 @@
-// main.ts — UI logic and Canvas visualization
+// main.ts — UI logic, Canvas grid visualization, and loss chart
 
 import type { SolveParams, WorkerMessage } from "./solver.worker";
+import { t, setLang, applyLang, type Lang } from "./i18n";
 
 // ---------------------------------------------------------------------------
 // Player colors — matches matplotlib tab20 palette approximately
@@ -16,13 +17,9 @@ const PLAYER_COLORS: string[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Canvas drawing
+// Grid Canvas drawing
 // ---------------------------------------------------------------------------
-function drawGrid(
-  canvas: HTMLCanvasElement,
-  grid: number[][],
-  asgn: number[][],
-): void {
+function drawGrid(canvas: HTMLCanvasElement, grid: number[][], asgn: number[][]): void {
   const ctx = canvas.getContext("2d")!;
   const n = grid.length;
   const cell = Math.floor(canvas.width / n);
@@ -49,13 +46,130 @@ function drawGrid(
 }
 
 // ---------------------------------------------------------------------------
+// Loss function chart (X: log scale iterations, Y: edge_diff)
+// ---------------------------------------------------------------------------
+interface LossPoint { iter: number; edgeDiff: number; }
+
+const lossHistory: LossPoint[] = [];
+
+function drawChart(maxIter: number): void {
+  const ctx = chartCanvas.getContext("2d")!;
+  // Fit canvas width to its container each time (handles first-render sizing)
+  chartCanvas.width = chartCanvas.parentElement!.clientWidth - 36;
+
+  const W = chartCanvas.width;
+  const H = chartCanvas.height;
+  const PAD = { top: 15, right: 20, bottom: 38, left: 58 };
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, W, H);
+
+  if (lossHistory.length < 2) return;
+
+  const yVals = lossHistory.map((p) => p.edgeDiff);
+  const yMin = Math.min(...yVals);
+  const yMax = Math.max(...yVals);
+  const yRange = yMax - yMin || 1;
+
+  // Log X scale: log10(1) → log10(maxIter)
+  const xLogMax = Math.log10(maxIter);
+  const xScale = (iter: number): number => {
+    const logIter = Math.log10(Math.max(1, iter));
+    return PAD.left + (logIter / xLogMax) * plotW;
+  };
+  const yScale = (v: number): number =>
+    PAD.top + (1 - (v - yMin) / yRange) * plotH;
+
+  // Grid lines + X-axis labels (powers of 10 that fit the range)
+  const decades = [1, 10, 100, 1_000, 10_000, 100_000, 500_000].filter(
+    (d) => d <= maxIter,
+  );
+  ctx.font = "11px system-ui";
+
+  for (const d of decades) {
+    const x = xScale(d);
+
+    ctx.strokeStyle = "#eee";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, PAD.top);
+    ctx.lineTo(x, PAD.top + plotH);
+    ctx.stroke();
+
+    ctx.fillStyle = "#888";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      d >= 1_000 ? `${d / 1_000}k` : String(d),
+      x,
+      PAD.top + plotH + 16,
+    );
+  }
+
+  // Y-axis labels and horizontal grid lines (5 levels)
+  ctx.textAlign = "right";
+  for (let step = 0; step <= 4; step++) {
+    const v = yMin + (yRange * step) / 4;
+    const y = yScale(v);
+
+    ctx.strokeStyle = "#eee";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, y);
+    ctx.lineTo(PAD.left + plotW, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#888";
+    ctx.fillText(Math.round(v).toString(), PAD.left - 6, y + 4);
+  }
+
+  // Axis border
+  ctx.strokeStyle = "#ccc";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(PAD.left, PAD.top, plotW, plotH);
+
+  // Loss line
+  ctx.strokeStyle = "#5c7cfa";
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  lossHistory.forEach((p, i) => {
+    const x = xScale(Math.max(1, p.iter));
+    const y = yScale(p.edgeDiff);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Data point dots
+  ctx.fillStyle = "#5c7cfa";
+  for (const p of lossHistory) {
+    const x = xScale(Math.max(1, p.iter));
+    const y = yScale(p.edgeDiff);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Axis labels
+  ctx.fillStyle = "#666";
+  ctx.textAlign = "center";
+  ctx.font = "11px system-ui";
+  ctx.fillText(t("chart.xaxis"), PAD.left + plotW / 2, H - 4);
+
+  ctx.save();
+  ctx.translate(12, PAD.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(t("chart.yaxis"), 0, 0);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
 // Stats table
 // ---------------------------------------------------------------------------
-function renderTable(
-  tbody: HTMLTableSectionElement,
-  scores: number[],
-  requirements: number[],
-): void {
+function renderTable(tbody: HTMLTableSectionElement, scores: number[], requirements: number[]): void {
   tbody.innerHTML = scores
     .map((score, k) => {
       const req = requirements[k];
@@ -63,47 +177,51 @@ function renderTable(
       const sign = delta >= 0 ? "+" : "";
       const ok = score >= req;
       return `<tr>
-        <td><span class="color-dot" style="background:${PLAYER_COLORS[k + 1] ?? "#ccc"}"></span>Player ${k + 1}</td>
+        <td><span class="color-dot" style="background:${PLAYER_COLORS[k + 1] ?? "#ccc"}"></span>${t("table.player", { k: k + 1 })}</td>
         <td>${score.toLocaleString()}</td>
         <td>${req.toLocaleString()}</td>
         <td>${sign}${delta.toLocaleString()}</td>
-        <td class="${ok ? "satisfied" : "not-satisfied"}">${ok ? "✓ OK" : "✗ UNMET"}</td>
+        <td class="${ok ? "satisfied" : "not-satisfied"}">${ok ? t("table.ok") : t("table.unmet")}</td>
       </tr>`;
     })
     .join("");
 }
 
 // ---------------------------------------------------------------------------
-// Chip helpers
+// Chip helper
 // ---------------------------------------------------------------------------
-function setChips(
-  el: HTMLElement,
-  items: [string, string | number][],
-): void {
+function setChips(el: HTMLElement, items: [string, string | number][]): void {
   el.innerHTML = items
     .map(([label, val]) => `<span class="chip"><b>${label}</b> ${val}</span>`)
     .join("");
 }
 
 // ---------------------------------------------------------------------------
-// App entry point
+// DOM refs
 // ---------------------------------------------------------------------------
-const canvas = document.getElementById("grid-canvas") as HTMLCanvasElement;
-const runBtn = document.getElementById("run-btn") as HTMLButtonElement;
+const canvas      = document.getElementById("grid-canvas")  as HTMLCanvasElement;
+const chartCanvas = document.getElementById("chart-canvas") as HTMLCanvasElement;
+const chartArea   = document.getElementById("chart-area")   as HTMLDivElement;
+const runBtn      = document.getElementById("run-btn")       as HTMLButtonElement;
 const progressBar = document.getElementById("progress-bar") as HTMLDivElement;
 const progressLabel = document.getElementById("progress-label") as HTMLSpanElement;
-const statsArea = document.getElementById("stats-area") as HTMLDivElement;
-const metaChips = document.getElementById("meta-chips") as HTMLDivElement;
-const tbody = document.querySelector("#stats-table tbody") as HTMLTableSectionElement;
-const errorBox = document.getElementById("error-box") as HTMLDivElement;
-const placeholder = document.getElementById("placeholder") as HTMLDivElement;
+const statsArea   = document.getElementById("stats-area")   as HTMLDivElement;
+const metaChips   = document.getElementById("meta-chips")   as HTMLDivElement;
+const tbody       = document.querySelector("#stats-table tbody") as HTMLTableSectionElement;
+const errorBox    = document.getElementById("error-box")    as HTMLDivElement;
+const placeholder = document.getElementById("placeholder")  as HTMLDivElement;
 
 let worker: Worker | null = null;
 let currentGrid: number[][] | null = null;
-let currentReqs: number[] | null = null;
 let initEdgeDiff = 0;
 let t0 = 0;
+let lastMaxIter = 100000;
+let lastScores: number[] = [];
+let lastRequirements: number[] = [];
 
+// ---------------------------------------------------------------------------
+// Form helpers
+// ---------------------------------------------------------------------------
 function getParams(): SolveParams {
   const v = (id: string) => parseInt((document.getElementById(id) as HTMLInputElement).value, 10);
   return {
@@ -119,13 +237,13 @@ function getParams(): SolveParams {
 }
 
 function validate(p: SolveParams): string | null {
-  if (p.n < 5 || p.n > 20) return "Grid size n must be 5–20.";
-  if (p.m < 2 || p.m > 15) return "Player count m must be 2–15.";
-  if (p.cellValueMin < 1) return "Cell score min must be ≥ 1.";
-  if (p.cellValueMin > p.cellValueMax) return "Cell score min must be ≤ max.";
-  if (p.reqMin < 0) return "Requirement min must be ≥ 0.";
-  if (p.reqMin > p.reqMax) return "Requirement min must be ≤ max.";
-  if (p.maxIter < 1000 || p.maxIter > 500000) return "Max iterations must be 1,000–500,000.";
+  if (p.n < 5 || p.n > 20) return t("err.n");
+  if (p.m < 2 || p.m > 15) return t("err.m");
+  if (p.cellValueMin < 1) return t("err.cvmin");
+  if (p.cellValueMin > p.cellValueMax) return t("err.cvminmax");
+  if (p.reqMin < 0) return t("err.reqmin");
+  if (p.reqMin > p.reqMax) return t("err.reqminmax");
+  if (p.maxIter < 1000 || p.maxIter > 500000) return t("err.maxiter");
   return null;
 }
 
@@ -143,28 +261,45 @@ function hideError(): void {
   errorBox.style.display = "none";
 }
 
-function resizeCanvas(n: number): void {
-  const size = Math.min(480, window.innerWidth - 32);
-  canvas.width = size;
-  canvas.height = size;
-}
+// ---------------------------------------------------------------------------
+// Language toggle
+// ---------------------------------------------------------------------------
+document.querySelectorAll<HTMLButtonElement>("[data-lang-btn]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    setLang(btn.dataset.langBtn as Lang);
+    // Redraw canvas-based elements that contain translated text
+    if (lossHistory.length >= 2) drawChart(lastMaxIter);
+    if (lastScores.length > 0) renderTable(tbody, lastScores, lastRequirements);
+  });
+});
 
+// Apply default language (JA) on load
+applyLang();
+
+// ---------------------------------------------------------------------------
+// Main click handler
+// ---------------------------------------------------------------------------
 runBtn.addEventListener("click", () => {
   hideError();
   const params = getParams();
   const err = validate(params);
   if (err) { showError(err); return; }
 
-  // Terminate any running worker
   if (worker) { worker.terminate(); worker = null; }
 
-  resizeCanvas(params.n);
+  // Resize grid canvas
+  const size = Math.min(480, window.innerWidth - 32);
+  canvas.width = size;
+  canvas.height = size;
+
   placeholder.style.display = "none";
   canvas.style.display = "block";
   statsArea.style.display = "none";
-  setProgress(0, "Starting...");
+  chartArea.style.display = "none";
+  setProgress(0, t("progress.starting"));
   runBtn.disabled = true;
   t0 = performance.now();
+  lastMaxIter = params.maxIter;
 
   worker = new Worker(new URL("./solver.worker.ts", import.meta.url), { type: "module" });
   worker.postMessage(params);
@@ -174,33 +309,58 @@ runBtn.addEventListener("click", () => {
 
     if (msg.type === "start") {
       currentGrid = msg.grid;
-      currentReqs = msg.requirements;
       initEdgeDiff = msg.initEdgeDiff;
+
+      // Draw blank grid to show problem layout
       drawGrid(canvas, msg.grid, msg.grid.map((row) => row.map(() => 0)));
-      setProgress(0, `Initial edge_diff: ${initEdgeDiff}`);
+
+      // Init chart
+      lossHistory.length = 0;
+      lossHistory.push({ iter: 0, edgeDiff: msg.initEdgeDiff });
+      chartArea.style.display = "block";
+      drawChart(params.maxIter);
+
+      setProgress(0, t("progress.initial", { val: initEdgeDiff }));
     }
 
     if (msg.type === "progress") {
       const pct = Math.round((msg.iter / msg.maxIter) * 100);
       const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-      setProgress(pct, `${pct}% | edge_diff: ${msg.edgeDiff} | ${elapsed}s`);
+      setProgress(pct, t("progress.running", { pct, edgeDiff: msg.edgeDiff, elapsed }));
+
       if (currentGrid) drawGrid(canvas, currentGrid, msg.assignment);
+
+      lossHistory.push({ iter: msg.iter, edgeDiff: msg.edgeDiff });
+      drawChart(params.maxIter);
     }
 
     if (msg.type === "done") {
       const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-      setProgress(100, `Done — ${elapsed}s | edge_diff: ${initEdgeDiff} → ${msg.finalEdgeDiff} (−${initEdgeDiff - msg.finalEdgeDiff})`);
+      setProgress(
+        100,
+        t("progress.done", {
+          elapsed,
+          init: initEdgeDiff,
+          final: msg.finalEdgeDiff,
+          diff: initEdgeDiff - msg.finalEdgeDiff,
+        }),
+      );
 
       if (currentGrid) drawGrid(canvas, currentGrid, msg.assignment);
 
+      lossHistory.push({ iter: params.maxIter, edgeDiff: msg.finalEdgeDiff });
+      drawChart(params.maxIter);
+
       setChips(metaChips, [
-        ["Grid:", `${params.n} × ${params.n}`],
-        ["Players:", params.m],
-        ["Elapsed:", `${elapsed}s`],
-        ["edge_diff:", `${initEdgeDiff} → ${msg.finalEdgeDiff}`],
-        ["Improved:", `−${initEdgeDiff - msg.finalEdgeDiff}`],
+        [t("chip.grid"), `${params.n} × ${params.n}`],
+        [t("chip.players"), params.m],
+        [t("chip.elapsed"), `${elapsed}s`],
+        [t("chip.edgediff"), `${initEdgeDiff} → ${msg.finalEdgeDiff}`],
+        [t("chip.improved"), `−${initEdgeDiff - msg.finalEdgeDiff}`],
       ]);
 
+      lastScores = msg.scores;
+      lastRequirements = msg.requirements;
       renderTable(tbody, msg.scores, msg.requirements);
       statsArea.style.display = "block";
       runBtn.disabled = false;
@@ -209,7 +369,7 @@ runBtn.addEventListener("click", () => {
   };
 
   worker.onerror = (err) => {
-    showError(`Solver error: ${err.message}`);
+    showError(t("err.solver", { msg: err.message }));
     runBtn.disabled = false;
     worker = null;
   };
