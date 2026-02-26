@@ -53,32 +53,38 @@ $$
 ## 目的関数
    様々な定式化を検討する。
 
-# 環境構築
-## uvによるpython環境の構築
-以下のコマンドでuvをインストール。
-```bash
-curl -Ls [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | bash
-```
-インストールを確認。
-```bash
-uv --version
-```
-## MIPソルバー(HiGHS)のインストール
-https://github.com/JuliaBinaryWrappers/HiGHSstatic_jll.jl/releases
-から自分の環境にあったHiGHSバイナリをダウンロードし任意のディレクトリに展開する。
+# 環境構築・実行方法
 
-実行ファイルの実行権限を付与して,展開したディレクトリ内のbinフォルダへのパスを~/.bashrcまたはターミナルで設定する。
+## Webアプリ（メイン実装）
+
+Node.js（v18以上）が必要。
+
 ```bash
-chmod +x {highsを展開したディレクトリのパス}/bin/highs
-export PATH="$PATH:/{highsを展開したディレクトリのパス}/bin"
-```
-パスが通っていることを確認。
-```bash
-highs --version
+cd web
+npm install
+npm run dev
 ```
 
-## 最適化の実行
-uvコマンドから最適化を実行すると、ビジュアライズされた結果がoutputフォルダに生成される。
+ブラウザで `http://localhost:5173` を開くとインタラクティブなソルバーが起動する。
+
+## ビルド（本番用）
+
+```bash
+cd web
+npm run build
+```
+
+`web/dist/` に静的ファイルが生成される。
+
+---
+
+## 参考：Python スクリプト（旧実装）
+
+`formulation/` フォルダにヒューリスティックソルバーの Python 実装がある。
+こちらは Web 版の参考実装であり、現在はメンテナンスされていない。
+
+実行する場合は [uv](https://github.com/astral-sh/uv) と [HiGHS](https://github.com/JuliaBinaryWrappers/HiGHSstatic_jll.jl/releases) が必要。
+
 ```bash
 uv run main.py
 ```

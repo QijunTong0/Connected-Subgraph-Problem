@@ -43,8 +43,12 @@ export function generateData(
 }
 
 // ---------------------------------------------------------------------------
-// initial_assignment — greedy tightest-window-first
-// Port of heuristic.initial_assignment
+// initialAssignment — Seed-and-Grow BFS
+//
+// 1. Place one seed per player, maximally spread across the grid (tile-based).
+// 2. Grow each seed via a max-heap (highest cell value first), respecting the
+//    per-player score upper bound (1.2 × requirement).
+// 3. After BFS, assign any remaining cells to unsatisfied players greedily.
 // ---------------------------------------------------------------------------
 export function initialAssignment(grid: number[][], requirements: number[]): number[][] {
   const n = grid.length;
@@ -54,19 +58,122 @@ export function initialAssignment(grid: number[][], requirements: number[]): num
   const scores = new Array<number>(m).fill(0);
   const satisfied = new Array<boolean>(m).fill(false);
 
-  // Collect all cells and sort by value descending
-  const cells: [number, number, number][] = [];
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      cells.push([grid[i][j], i, j]);
+  // --- Step 1: place seeds via tile partition ---
+  // Divide grid into m tiles; pick the highest-value cell in each tile as seed.
+  const tilesPerDim = Math.ceil(Math.sqrt(m));
+  const tileH = Math.ceil(n / tilesPerDim);
+  const tileW = Math.ceil(n / tilesPerDim);
+  const seeds: [number, number][] = [];
+  outer: for (let tr = 0; tr < tilesPerDim && seeds.length < m; tr++) {
+    for (let tc = 0; tc < tilesPerDim && seeds.length < m; tc++) {
+      let bestVal = -Infinity;
+      let bestR = tr * tileH;
+      let bestC = tc * tileW;
+      for (let r = tr * tileH; r < Math.min((tr + 1) * tileH, n); r++) {
+        for (let c = tc * tileW; c < Math.min((tc + 1) * tileW, n); c++) {
+          if (grid[r][c] > bestVal) {
+            bestVal = grid[r][c];
+            bestR = r;
+            bestC = c;
+          }
+        }
+      }
+      seeds.push([bestR, bestC]);
     }
   }
-  cells.sort((a, b) => b[0] - a[0]);
+  // Assign seeds
+  for (let k = 0; k < m; k++) {
+    const [sr, sc] = seeds[k];
+    const v = grid[sr][sc];
+    if (v <= upper[k] - scores[k]) {
+      asgn[sr][sc] = k + 1;
+      scores[k] += v;
+      if (scores[k] >= requirements[k]) satisfied[k] = true;
+    }
+  }
 
-  for (const [v, i, j] of cells) {
+  // --- Step 2: BFS expansion (max-heap by cell value) ---
+  // Each entry: [negValue, row, col, playerIndex] (negate for min-heap as max-heap)
+  type HeapEntry = [number, number, number, number];
+  const heap: HeapEntry[] = [];
+
+  const heapPush = (entry: HeapEntry) => {
+    heap.push(entry);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (heap[parent][0] <= heap[i][0]) break;
+      [heap[parent], heap[i]] = [heap[i], heap[parent]];
+      i = parent;
+    }
+  };
+  const heapPop = (): HeapEntry => {
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length > 0) {
+      heap[0] = last;
+      let i = 0;
+      while (true) {
+        const l = 2 * i + 1;
+        const r = 2 * i + 2;
+        let smallest = i;
+        if (l < heap.length && heap[l][0] < heap[smallest][0]) smallest = l;
+        if (r < heap.length && heap[r][0] < heap[smallest][0]) smallest = r;
+        if (smallest === i) break;
+        [heap[i], heap[smallest]] = [heap[smallest], heap[i]];
+        i = smallest;
+      }
+    }
+    return top;
+  };
+
+  const dirs: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  // Seed neighbors into the heap
+  for (let k = 0; k < m; k++) {
+    const [sr, sc] = seeds[k];
+    for (const [dr, dc] of dirs) {
+      const nr = sr + dr;
+      const nc = sc + dc;
+      if (nr >= 0 && nr < n && nc >= 0 && nc < n && asgn[nr][nc] === 0) {
+        heapPush([-grid[nr][nc], nr, nc, k]);
+      }
+    }
+  }
+
+  while (heap.length > 0) {
+    const [negVal, r, c, k] = heapPop();
+    if (asgn[r][c] !== 0) continue; // already claimed
+    if (satisfied[k]) continue;     // player done
+
+    const v = -negVal;
+    const cap = upper[k] - scores[k];
+    if (v > cap) continue; // would exceed upper bound
+
+    asgn[r][c] = k + 1;
+    scores[k] += v;
+    if (scores[k] >= requirements[k]) satisfied[k] = true;
+
+    // Push unvisited neighbors for the same player
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr >= 0 && nr < n && nc >= 0 && nc < n && asgn[nr][nc] === 0) {
+        heapPush([-grid[nr][nc], nr, nc, k]);
+      }
+    }
+  }
+
+  // --- Step 3: greedy fallback for remaining unsatisfied players ---
+  const remaining: [number, number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (asgn[i][j] === 0) remaining.push([grid[i][j], i, j]);
+    }
+  }
+  remaining.sort((a, b) => b[0] - a[0]);
+
+  for (const [v, i, j] of remaining) {
     if (satisfied.every(Boolean)) break;
-
-    // Assign to the player with the tightest remaining capacity window
     let bestK = -1;
     let bestCap = Infinity;
     for (let k = 0; k < m; k++) {
@@ -81,11 +188,11 @@ export function initialAssignment(grid: number[][], requirements: number[]): num
       }
     }
     if (bestK < 0) continue;
-
-    asgn[i][j] = bestK + 1; // 1-indexed player ID
+    asgn[i][j] = bestK + 1;
     scores[bestK] += v;
     if (scores[bestK] >= requirements[bestK]) satisfied[bestK] = true;
   }
+
   return asgn;
 }
 
