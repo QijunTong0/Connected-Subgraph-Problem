@@ -1,4 +1,9 @@
+import logging
+import time
+
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def initial_assignment(
@@ -120,6 +125,13 @@ def calc_local_score(assignment: np.ndarray, r: int, c: int) -> int:
     return score
 
 
+def _total_edge_diff(assignment: np.ndarray) -> int:
+    return int(
+        np.sum(assignment[:, :-1] != assignment[:, 1:])
+        + np.sum(assignment[:-1, :] != assignment[1:, :])
+    )
+
+
 def solve_assignment(grid: np.ndarray, requirements: np.ndarray, max_seconds: int = 30, max_iter=100000) -> np.ndarray:
     assignment = initial_assignment(grid, requirements, max_seconds=max_seconds)
     h, w = assignment.shape
@@ -128,7 +140,30 @@ def solve_assignment(grid: np.ndarray, requirements: np.ndarray, max_seconds: in
     pos2 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
     pos3 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
     assign_num = np.random.randint(0, assign_num + 1, size=max_iter)
+
+    initial_edge_diff = _total_edge_diff(assignment)
+    logger.info("local search started: max_iter=%d, initial edge_diff=%d", max_iter, initial_edge_diff)
+
+    log_interval = max(1, max_iter // 10)
+    start_time = time.time()
+
     for i in range(max_iter):
         try_swap_assignment(assignment, pos1[i], pos2[i])
         try_change_single_assigment(assignment, pos3[i], assign_num[i])
+
+        if (i + 1) % log_interval == 0:
+            elapsed = time.time() - start_time
+            logger.info(
+                "iter %d/%d (%3.0f%%) | elapsed %.1fs | edge_diff=%d",
+                i + 1, max_iter, (i + 1) / max_iter * 100,
+                elapsed, _total_edge_diff(assignment),
+            )
+
+    elapsed = time.time() - start_time
+    final_edge_diff = _total_edge_diff(assignment)
+    logger.info(
+        "local search finished: elapsed %.1fs, edge_diff %d -> %d (improved by %d)",
+        elapsed, initial_edge_diff, final_edge_diff, initial_edge_diff - final_edge_diff,
+    )
+
     return assignment

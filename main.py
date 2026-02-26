@@ -1,5 +1,9 @@
+import logging
+
 from formulation import heuristic
 from utils import generate_data, visualize_solution
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # パラメータ
 F_NUM = 12  # グリッドサイズ
