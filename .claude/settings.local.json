@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add formulation/heuristic.py main.py)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

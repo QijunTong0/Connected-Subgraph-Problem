@@ -20,7 +20,7 @@ x_{ijk} =
 1, & \text{プレイヤー } k \text{ がセル } (i,j) \text{ に石を置く},\\
 0, & \text{それ以外}.
 \end{cases}
-$$
+$
 
 ---
 

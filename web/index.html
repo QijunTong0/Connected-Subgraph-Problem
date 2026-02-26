@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connected Subgraph Problem</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      background: #f0f2f5;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #eee;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    header p {
+      font-size: 0.8rem;
+      opacity: 0.65;
+      margin-top: 3px;
+    }
+
+    /* ---- Lang toggle ---- */
+    .lang-toggle {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+      margin-left: 16px;
+    }
+
+    .lang-btn {
+      padding: 3px 10px;
+      border: 1px solid rgba(255, 255, 255, .35);
+      background: transparent;
+      color: #eee;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .8rem;
+      font-weight: 600;
+      transition: background .15s;
+    }
+
+    .lang-btn.active {
+      background: rgba(255, 255, 255, .25);
+    }
+
+    .lang-btn:hover:not(.active) {
+      background: rgba(255, 255, 255, .1);
+    }
+
+    .layout {
+      display: flex;
+      gap: 18px;
+      padding: 18px;
+      max-width: 1300px;
+      margin: 0 auto;
+      align-items: flex-start;
+    }
+
+    /* ---- LEFT col 1: description ---- */
+    .panel-desc {
+      flex: 0 0 360px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+    }
+
+    /* ---- LEFT col 2: params ---- */
+    .panel-params {
+      flex: 0 0 230px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+    }
+
+    /* ---- Problem description ---- */
+    .desc-section {
+      margin-bottom: 4px;
+    }
+
+    .desc-section h2 {
+      font-size: .95rem;
+      border-bottom: 2px solid #e3e6f0;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    .desc-lead {
+      font-size: .8rem;
+      line-height: 1.55;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .desc-subtitle {
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #999;
+      margin: 10px 0 4px;
+    }
+
+    .desc-list {
+      font-size: .78rem;
+      line-height: 1.65;
+      color: #444;
+      padding-left: 14px;
+      list-style: disc;
+    }
+
+    .desc-formula {
+      font-size: .78rem;
+      background: #f5f7ff;
+      border-left: 3px solid #5c7cfa;
+      padding: 6px 10px;
+      border-radius: 0 6px 6px 0;
+      margin: 4px 0 6px;
+      color: #333;
+      line-height: 1.55;
+    }
+
+    .desc-note {
+      font-size: .72rem;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .desc-divider {
+      border: none;
+      border-top: 2px solid #e3e6f0;
+      margin: 14px 0;
+    }
+
+    /* ---- Params form ---- */
+    .params-h2 {
+      font-size: .95rem;
+      border-bottom: 2px solid #e3e6f0;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #999;
+      margin: 12px 0 7px;
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field label {
+      display: block;
+      font-weight: 600;
+      font-size: .8rem;
+      color: #444;
+      margin-bottom: 3px;
+    }
+
+    .field .hint {
+      font-size: .7rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .row2 {
+      display: flex;
+      gap: 7px;
+    }
+
+    .row2 .field {
+      flex: 1;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 6px 9px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: .88rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    input[type="number"]:focus {
+      border-color: #5c7cfa;
+    }
+
+    #run-btn {
+      width: 100%;
+      padding: 9px;
+      background: #5c7cfa;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .95rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background .15s, opacity .15s;
+    }
+
+    #run-btn:hover:not(:disabled) {
+      background: #3b5bdb;
+    }
+
+    #run-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    #error-box {
+      display: none;
+      margin-top: 8px;
+      background: #fff3f3;
+      border: 1px solid #f5a5a5;
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: .8rem;
+      color: #c0392b;
+    }
+
+    /* ---- RIGHT: result ---- */
+    .panel-result {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .result-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+      margin-bottom: 14px;
+    }
+
+    #placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 260px;
+      color: #bbb;
+      font-size: .95rem;
+    }
+
+    #grid-canvas {
+      display: none;
+      border-radius: 4px;
+    }
+
+    /* Progress */
+    .progress-wrap {
+      margin-top: 12px;
+    }
+
+    .progress-track {
+      height: 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #5c7cfa;
+      transition: width .3s ease;
+      border-radius: 4px;
+    }
+
+    #progress-label {
+      display: block;
+      font-size: .78rem;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    /* Meta chips */
+    #meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      background: #f0f4ff;
+      border: 1px solid #d0d9ff;
+      border-radius: 20px;
+      padding: 3px 11px;
+      font-size: .78rem;
+      color: #3b5bdb;
+    }
+
+    /* Loss chart */
+    .chart-title {
+      font-size: .88rem;
+      margin-bottom: 10px;
+      color: #444;
+    }
+
+    #chart-canvas {
+      display: block;
+      width: 100%;
+    }
+
+    /* Stats */
+    #stats-area {
+      display: none;
+    }
+
+    #stats-area h3 {
+      font-size: .88rem;
+      margin-bottom: 8px;
+      color: #444;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .8rem;
+    }
+
+    thead th {
+      background: #f8f9fa;
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 2px solid #dee2e6;
+      font-weight: 700;
+      color: #555;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    tbody td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .color-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+      border: 1px solid rgba(0, 0, 0, .15);
+    }
+
+    .satisfied {
+      color: #2ecc71;
+      font-weight: 700;
+    }
+
+    .not-satisfied {
+      color: #e74c3c;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1000px) {
+      .layout {
+        flex-wrap: wrap;
+      }
+
+      .panel-desc {
+        flex: 1 1 260px;
+      }
+
+      .panel-params {
+        flex: 1 1 200px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .panel-desc,
+      .panel-params {
+        flex: none;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div>
+      <h1 data-i18n="header.title">連結部分グラフ問題 — ヒューリスティックソルバー</h1>
+      <p data-i18n="header.subtitle">貪欲法による初期割り当て + 局所探索（境界エッジを最小化）· すべてブラウザ内で実行</p>
+    </div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" data-lang-btn="ja">JA</button>
+      <button class="lang-btn" data-lang-btn="en">EN</button>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT col 1: description -->
+    <aside class="panel-desc">
+      <section class="desc-section">
+        <h2 data-i18n="desc.title">このアプリについて</h2>
+
+        <p class="desc-lead" data-i18n-html="desc.lead.html">
+          <strong>連結部分グラフ問題</strong><br>m人のプレイヤーがn×nのグリッドに石を置き、スコアを最大化しながら各プレイヤーの領域を連結にまとめることを目指す問題です。
+        </p>
+
+        <p class="desc-subtitle" data-i18n="desc.subtitle.problem">問題設定</p>
+        <ul class="desc-list">
+          <li data-i18n-html="desc.list.problem.1">グリッド: n×nのマス目；各マス(i,j)はスコアg_ijを持つ</li>
+          <li data-i18n-html="desc.list.problem.2">mプレイヤーがそれぞれマスのサブセットを占有する</li>
+          <li data-i18n-html="desc.list.problem.3">各マスは最大1個の石しか置けない</li>
+          <li data-i18n-html="desc.list.problem.4">プレイヤーkのスコア = 占有マスのΣg_ij</li>
+        </ul>
+
+        <p class="desc-subtitle" data-i18n="desc.subtitle.constraints">制約</p>
+        <ul class="desc-list">
+          <li data-i18n-html="desc.list.constraints.1">R_k ≤ score_k ≤ 1.2 · R_k　∀k</li>
+          <li data-i18n-html="desc.list.constraints.2">各プレイヤーの石は連結な領域を形成すること</li>
+        </ul>
+
+        <p class="desc-subtitle" data-i18n="desc.subtitle.objective">目的関数</p>
+        <div class="desc-formula" data-i18n-html="desc.formula.html">edge_diff を最小化 =<br>異なるプレイヤーが隣接するマスのペア数</div>
+        <p class="desc-note" data-i18n="desc.note">境界エッジが少ないほど → よりコンパクト / 連結な領域</p>
+
+        <p class="desc-subtitle" data-i18n="desc.subtitle.algorithm">アルゴリズム</p>
+        <ul class="desc-list">
+          <li data-i18n-html="desc.list.algo.1"><strong>フェーズ1 — 貪欲初期割り当て:</strong> スコアが高いマスから順に、残りスコア枠が最も狭いプレイヤーへ割り当てる。
+          </li>
+          <li data-i18n-html="desc.list.algo.2"><strong>フェーズ2 — 局所探索:</strong>
+            ランダムに2マスを入れ替えるか1マスを再割り当て；edge_diffが減少する場合のみ採用。</li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- LEFT col 2: params -->
+    <aside class="panel-params">
+      <h2 class="params-h2" data-i18n="params.title">パラメータ</h2>
+
+      <p class="section-title" data-i18n="params.section.grid">グリッド</p>
+      <div class="field">
+        <label for="inp-n" data-i18n="params.label.n">グリッドサイズ n (n × n)</label>
+        <input type="number" id="inp-n" value="12" min="5" max="20" />
+        <div class="hint" data-i18n="params.hint.n">5 – 20</div>
+      </div>
+      <div class="field">
+        <label for="inp-m" data-i18n="params.label.m">プレイヤー数 m</label>
+        <input type="number" id="inp-m" value="12" min="2" max="15" />
+        <div class="hint" data-i18n="params.hint.m">2 – 15</div>
+      </div>
+
+      <p class="section-title" data-i18n="params.section.cell">セルスコア範囲</p>
+      <div class="row2">
+        <div class="field">
+          <label for="inp-cv-min" data-i18n="params.label.min">最小</label>
+          <input type="number" id="inp-cv-min" value="10" min="1" />
+        </div>
+        <div class="field">
+          <label for="inp-cv-max" data-i18n="params.label.max">最大</label>
+          <input type="number" id="inp-cv-max" value="20" min="1" />
+        </div>
+      </div>
+
+      <p class="section-title" data-i18n="params.section.req">要求スコア範囲</p>
+      <div class="row2">
+        <div class="field">
+          <label for="inp-req-min" data-i18n="params.label.min">最小</label>
+          <input type="number" id="inp-req-min" value="150" min="0" />
+        </div>
+        <div class="field">
+          <label for="inp-req-max" data-i18n="params.label.max">最大</label>
+          <input type="number" id="inp-req-max" value="200" min="0" />
+        </div>
+      </div>
+
+      <p class="section-title" data-i18n="params.section.solver">ソルバー</p>
+      <div class="field">
+        <label for="inp-seed" data-i18n="params.label.seed">乱数シード</label>
+        <input type="number" id="inp-seed" value="4" min="0" />
+      </div>
+      <div class="field">
+        <label for="inp-max-iter" data-i18n="params.label.maxiter">最大イテレーション数</label>
+        <input type="number" id="inp-max-iter" value="100000" min="1000" max="500000" step="1000" />
+        <div class="hint" data-i18n="params.hint.maxiter">1,000 – 500,000</div>
+      </div>
+
+      <button id="run-btn" type="button" data-i18n="params.run">ソルバーを実行</button>
+      <div id="error-box"></div>
+    </aside><!-- .panel-params -->
+
+    <!-- RIGHT: results -->
+    <main class="panel-result">
+
+      <!-- Grid visualization -->
+      <div class="result-card">
+        <div id="placeholder" data-i18n="result.placeholder">パラメータを設定して「ソルバーを実行」をクリックしてください。</div>
+        <canvas id="grid-canvas"></canvas>
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div id="progress-bar"></div>
+          </div>
+          <span id="progress-label"></span>
+        </div>
+        <div id="meta-chips"></div>
+      </div>
+
+      <!-- Loss function chart -->
+      <div class="result-card" id="chart-area" style="display:none">
+        <h3 class="chart-title" data-i18n="chart.title">損失関数（edge_diff）のイテレーション推移</h3>
+        <canvas id="chart-canvas" height="200"></canvas>
+      </div>
+
+      <!-- Player stats table -->
+      <div class="result-card" id="stats-area">
+        <h3 data-i18n="stats.title">プレイヤースコアと要求値</h3>
+        <table id="stats-table">
+          <thead>
+            <tr>
+              <th data-i18n="stats.col.player">プレイヤー</th>
+              <th data-i18n="stats.col.score">スコア</th>
+              <th data-i18n="stats.col.req">要求値</th>
+              <th data-i18n="stats.col.diff">差分</th>
+              <th data-i18n="stats.col.status">ステータス</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
