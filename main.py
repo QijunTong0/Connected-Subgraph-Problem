@@ -1,4 +1,4 @@
-from formulation import boundbox, edge_diff, heuristic
+from formulation import heuristic
 from utils import generate_data, visualize_solution
 
 # パラメータ
@@ -29,26 +29,6 @@ def main():
     )
 
     return 0
-    # 割り当てエリアの座標の幅を最小化
-    assignment = edge_diff.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
-    visualize_solution(
-        grid,
-        assignment,
-        reqs,
-        seconds=MAX_SECONDS,
-        title="minimize edge_diff result",
-        filename="output/minimize_edge_diff.svg",
-    )
-    # 隣接エリアが異なる割り当てになる回数の最小化
-    assignment = boundbox.solve_assignment(grid, reqs, max_seconds=MAX_SECONDS)
-    visualize_solution(
-        grid,
-        assignment,
-        reqs,
-        seconds=MAX_SECONDS,
-        title="minimize boundbox result",
-        filename="output/minimize_xy_boundbox.svg",
-    )
 
 
 if __name__ == "__main__":

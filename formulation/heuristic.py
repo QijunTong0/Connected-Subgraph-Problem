@@ -1,72 +1,27 @@
-import numba
 import numpy as np
-import pulp
-from tqdm import tqdm
 
 
-def solve_initial_assignment(
-    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30
+def initial_assignment(
+    grid: np.ndarray,
+    requirements: np.ndarray,
 ) -> np.ndarray:
     """
-    Solve the assignment problem via PuLP:
       - x[i,j,k] ∈ {0,1}: player k places stone on cell (i,j)
       - Each cell holds at most one stone
       - Each player k's score ∈ [requirements[k], requirements[k]*1.2]
-      - Total stones ≤ stone_budget (if provided)
-      - Objective: minimize sum of |x(i1,j1,k) - x(i2,j2,k)| over all adjacent pairs
     Returns an (n×n) array where 0 indicates no stone, and 1..m indicates the player ID.
     """
     n = grid.shape[0]
     m = requirements.size
 
-    # Create problem
-    prob = pulp.LpProblem("assignment", pulp.LpMinimize)
-
-    # Decision variables x[i][j][k]
-    x = pulp.LpVariable.dicts("x", (range(n), range(n), range(m)), cat=pulp.LpBinary)
-
-    # At most one stone per cell
-    for i in range(n):
-        for j in range(n):
-            prob += pulp.lpSum(x[i][j][k] for k in range(m)) <= 1, f"one_stone_{i}_{j}"
-
-    # Score requirements for each player
-    for k in range(m):
-        prob += (
-            pulp.lpSum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) >= requirements[k],
-            f"min_score_player_{k}",
-        )
-        prob += (
-            pulp.lpSum(grid[i, j] * x[i][j][k] for i in range(n) for j in range(n)) <= requirements[k] * 1.2,
-            f"max_score_player_{k}",
-        )
-
-    # Total stone budget
-    if stone_budget is not None:
-        prob += (
-            pulp.lpSum(x[i][j][k] for i in range(n) for j in range(n) for k in range(m)) <= stone_budget,
-            "stone_budget",
-        )
-
-    # Objective: minimize total adjacency differences
-    prob += 1
-
-    # Solve with HiGHS and time limit
-    solver = pulp.HiGHS_CMD(timeLimit=max_seconds)
-    prob.solve(solver)
-
     # Build assignment matrix
     assignment = np.zeros((n, n), dtype=int)
-    for i in range(n):
-        for j in range(n):
-            for k in range(m):
-                if pulp.value(x[i][j][k]) >= 0.5:
-                    assignment[i, j] = k + 1
+    # FIXME:implement initial assignment
 
     return assignment
 
 
-def try_swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> None:
+def try_swap_assignment(assignment: np.ndarray, pos1: tuple, pos2: tuple) -> bool:
     """
     Swap the elements at positions pos1 and pos2 in the assignment array in-place.
 
@@ -118,7 +73,6 @@ def try_change_single_assigment(assignment: np.ndarray, pos: tuple, new_value: i
         return False
 
 
-@numba.njit
 def calc_local_score(assignment: np.ndarray, r: int, c: int) -> int:
     h, w = assignment.shape
     score = 0
@@ -134,17 +88,15 @@ def calc_local_score(assignment: np.ndarray, r: int, c: int) -> int:
     return score
 
 
-def solve_assignment(
-    grid: np.ndarray, requirements: np.ndarray, stone_budget: int = None, max_seconds: int = 30, max_iter=1000000
-) -> np.ndarray:
-    assignment = solve_initial_assignment(grid, requirements, max_seconds=max_seconds)
+def solve_assignment(grid: np.ndarray, requirements: np.ndarray, max_seconds: int = 30, max_iter=1000000) -> np.ndarray:
+    assignment = initial_assignment(grid, requirements, max_seconds=max_seconds)
     h, w = assignment.shape
     assign_num = len(requirements) + 1
     pos1 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
     pos2 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
     pos3 = np.column_stack((np.random.randint(0, h, size=max_iter), np.random.randint(1, w, size=max_iter)))
     assign_num = np.random.randint(0, assign_num + 1, size=max_iter)
-    for i in tqdm(range(max_iter)):
+    for i in range(max_iter):
         try_swap_assignment(assignment, pos1[i], pos2[i])
         try_change_single_assigment(assignment, pos3[i], assign_num[i])
     return assignment
