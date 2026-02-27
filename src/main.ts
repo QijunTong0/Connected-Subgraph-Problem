@@ -224,6 +224,7 @@ let lastRequirements: number[] = [];
 // ---------------------------------------------------------------------------
 function getParams(): SolveParams {
   const v = (id: string) => parseInt((document.getElementById(id) as HTMLInputElement).value, 10);
+  const vf = (id: string) => parseFloat((document.getElementById(id) as HTMLInputElement).value);
   return {
     n: v("inp-n"),
     m: v("inp-m"),
@@ -233,6 +234,7 @@ function getParams(): SolveParams {
     reqMax: v("inp-req-max"),
     seed: v("inp-seed"),
     maxIter: v("inp-max-iter"),
+    lambdaReq: vf("inp-lambda-req"),
   };
 }
 

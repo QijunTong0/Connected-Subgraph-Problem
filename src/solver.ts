@@ -104,44 +104,108 @@ export function calcLocalScore(asgn: number[][], r: number, c: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// try_swap_assignment — port of heuristic.try_swap_assignment
+// try_swap_assignment — composite loss: edge diff + λ × requirements penalty
 // ---------------------------------------------------------------------------
 export function trySwapAssignment(
   asgn: number[][],
+  grid: number[][],
+  scores: number[],
+  requirements: number[],
+  lambdaReq: number,
   pos1: [number, number],
   pos2: [number, number],
 ): boolean {
   const [r1, c1] = pos1;
   const [r2, c2] = pos2;
-  const curr = calcLocalScore(asgn, r1, c1) + calcLocalScore(asgn, r2, c2);
+
+  const oldEdge = calcLocalScore(asgn, r1, c1) + calcLocalScore(asgn, r2, c2);
+
+  // Compute Δ_req for affected players (k1, k2 are 1-indexed; 0 means empty)
+  const k1 = asgn[r1][c1]; // 1-indexed player id (or 0)
+  const k2 = asgn[r2][c2];
+  let deltaReq = 0;
+  if (lambdaReq !== 0 && k1 !== k2) {
+    const v1 = grid[r1][c1];
+    const v2 = grid[r2][c2];
+    if (k1 > 0) {
+      const oldViol = Math.max(0, requirements[k1 - 1] - scores[k1 - 1]);
+      const newViol = Math.max(0, requirements[k1 - 1] - (scores[k1 - 1] - v1 + v2));
+      deltaReq += newViol - oldViol;
+    }
+    if (k2 > 0) {
+      const oldViol = Math.max(0, requirements[k2 - 1] - scores[k2 - 1]);
+      const newViol = Math.max(0, requirements[k2 - 1] - (scores[k2 - 1] - v2 + v1));
+      deltaReq += newViol - oldViol;
+    }
+  }
+
   const tmp = asgn[r1][c1];
   asgn[r1][c1] = asgn[r2][c2];
   asgn[r2][c2] = tmp;
-  const next = calcLocalScore(asgn, r1, c1) + calcLocalScore(asgn, r2, c2);
-  if (next >= curr) {
-    // revert
-    asgn[r2][c2] = asgn[r1][c1];
-    asgn[r1][c1] = tmp;
-    return false;
+  const newEdge = calcLocalScore(asgn, r1, c1) + calcLocalScore(asgn, r2, c2);
+
+  if (newEdge - oldEdge + lambdaReq * deltaReq < 0) {
+    // Accept: update scores in-place
+    if (k1 !== k2) {
+      const v1 = grid[r1][c1];
+      const v2 = grid[r2][c2];
+      if (k1 > 0) scores[k1 - 1] += v2 - v1;
+      if (k2 > 0) scores[k2 - 1] += v1 - v2;
+    }
+    return true;
   }
-  return true;
+  // Revert
+  asgn[r2][c2] = asgn[r1][c1];
+  asgn[r1][c1] = tmp;
+  return false;
 }
 
 // ---------------------------------------------------------------------------
-// try_change_single_assignment — port of heuristic.try_change_single_assigment
+// try_change_single_assignment — composite loss: edge diff + λ × requirements penalty
 // ---------------------------------------------------------------------------
 export function tryChangeSingleAssignment(
   asgn: number[][],
+  grid: number[][],
+  scores: number[],
+  requirements: number[],
+  lambdaReq: number,
   pos: [number, number],
   newValue: number,
 ): boolean {
   const [r, c] = pos;
-  const old = asgn[r][c];
-  const curr = calcLocalScore(asgn, r, c);
-  asgn[r][c] = newValue;
-  const next = calcLocalScore(asgn, r, c);
-  if (next < curr) return true;
-  asgn[r][c] = old;
+  const kOld = asgn[r][c]; // 1-indexed (or 0)
+  const kNew = newValue;
+  if (kOld === kNew) return false;
+
+  const oldEdge = calcLocalScore(asgn, r, c);
+
+  // Compute Δ_req
+  let deltaReq = 0;
+  if (lambdaReq !== 0) {
+    const v = grid[r][c];
+    if (kOld > 0) {
+      const oldViol = Math.max(0, requirements[kOld - 1] - scores[kOld - 1]);
+      const newViol = Math.max(0, requirements[kOld - 1] - (scores[kOld - 1] - v));
+      deltaReq += newViol - oldViol;
+    }
+    if (kNew > 0) {
+      const oldViol = Math.max(0, requirements[kNew - 1] - scores[kNew - 1]);
+      const newViol = Math.max(0, requirements[kNew - 1] - (scores[kNew - 1] + v));
+      deltaReq += newViol - oldViol;
+    }
+  }
+
+  asgn[r][c] = kNew;
+  const newEdge = calcLocalScore(asgn, r, c);
+
+  if (newEdge - oldEdge + lambdaReq * deltaReq < 0) {
+    // Accept: update scores in-place
+    const v = grid[r][c];
+    if (kOld > 0) scores[kOld - 1] -= v;
+    if (kNew > 0) scores[kNew - 1] += v;
+    return true;
+  }
+  asgn[r][c] = kOld;
   return false;
 }
 

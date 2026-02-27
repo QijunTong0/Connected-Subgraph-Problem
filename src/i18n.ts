@@ -30,9 +30,10 @@ const translations: Record<Lang, Record<string, string>> = {
 
     "desc.subtitle.objective":   "目的関数",
     "desc.formula.html":
-      "\\(\\text{edge\\_diff}\\) を最小化 =<br>" +
-      "異なるプレイヤーが隣接するマスのペア数",
-    "desc.note": "境界エッジが少ないほど → よりコンパクト / 連結な領域",
+      "\\(\\text{edge\\_diff} + \\lambda \\sum_k \\max(0,\\, R_k - \\mathrm{score}_k)\\) を最小化<br>" +
+      "第1項: 異なるプレイヤーが隣接するマスのペア数（連結性の近似）<br>" +
+      "第2項: 要求スコア未達のペナルティ（λ で重み調整）",
+    "desc.note": "λ=0 なら連結性のみ最適化；λ>0 なら要求制約を同時に考慮",
 
     "desc.subtitle.algorithm":   "アルゴリズム",
     "desc.list.algo.1":
@@ -40,7 +41,7 @@ const translations: Record<Lang, Record<string, string>> = {
       "スコアが高いマスから順に、残りスコア枠が最も狭いプレイヤーへ割り当てる。",
     "desc.list.algo.2":
       "<strong>フェーズ2 — 局所探索:</strong> " +
-      "ランダムに2マスを入れ替えるか1マスを再割り当て；edge_diffが減少する場合のみ採用。",
+      "ランダムに2マスを入れ替えるか1マスを再割り当て；複合損失（edge_diff + λ×要求ペナルティ）が減少する場合のみ採用。",
 
     // ---- Params panel ----
     "params.title":          "パラメータ",
@@ -54,10 +55,12 @@ const translations: Record<Lang, Record<string, string>> = {
     "params.label.max":      "最大",
     "params.section.req":    "要求スコア範囲",
     "params.section.solver": "ソルバー",
-    "params.label.seed":     "乱数シード",
-    "params.label.maxiter":  "最大イテレーション数",
-    "params.hint.maxiter":   "1,000 – 500,000",
-    "params.run":            "ソルバーを実行",
+    "params.label.seed":        "乱数シード",
+    "params.label.maxiter":     "最大イテレーション数",
+    "params.hint.maxiter":      "1,000 – 500,000",
+    "params.label.lambdareq":   "要求ペナルティ λ",
+    "params.hint.lambdareq":    "0 = 無視 ／ 大きいほど要求制約を優先",
+    "params.run":               "ソルバーを実行",
 
     // ---- Result area ----
     "result.placeholder": "パラメータを設定して「ソルバーを実行」をクリックしてください。",
@@ -126,15 +129,16 @@ const translations: Record<Lang, Record<string, string>> = {
 
     "desc.subtitle.objective":   "Objective",
     "desc.formula.html":
-      "Minimize \\(\\text{edge\\_diff}\\) =<br>" +
-      "# adjacent cell pairs owned by <em>different</em> players",
-    "desc.note": "Fewer boundary edges → more compact / connected regions.",
+      "Minimize \\(\\text{edge\\_diff} + \\lambda \\sum_k \\max(0,\\, R_k - \\mathrm{score}_k)\\)<br>" +
+      "Term 1: # adjacent pairs owned by <em>different</em> players (connectivity proxy)<br>" +
+      "Term 2: penalty for unmet score requirements (weighted by λ)",
+    "desc.note": "λ=0: optimise connectivity only; λ>0: also enforce score requirements.",
 
     "desc.subtitle.algorithm":   "Algorithm",
     "desc.list.algo.1":
       "<strong>Phase 1 — Greedy init:</strong> Assign cells (highest value first) to the player with the tightest remaining score window.",
     "desc.list.algo.2":
-      "<strong>Phase 2 — Local search:</strong> Randomly swap two cells or reassign one cell; accept only if edge_diff decreases.",
+      "<strong>Phase 2 — Local search:</strong> Randomly swap two cells or reassign one cell; accept only if composite loss (edge_diff + λ×req. penalty) decreases.",
 
     // ---- Params panel ----
     "params.title":          "Parameters",
@@ -148,10 +152,12 @@ const translations: Record<Lang, Record<string, string>> = {
     "params.label.max":      "Max",
     "params.section.req":    "Requirement range",
     "params.section.solver": "Solver",
-    "params.label.seed":     "Random seed",
-    "params.label.maxiter":  "Max iterations",
-    "params.hint.maxiter":   "1,000 – 500,000",
-    "params.run":            "Run Solver",
+    "params.label.seed":        "Random seed",
+    "params.label.maxiter":     "Max iterations",
+    "params.hint.maxiter":      "1,000 – 500,000",
+    "params.label.lambdareq":   "Requirement penalty λ",
+    "params.hint.lambdareq":    "0 = ignore ／ larger = stricter requirement enforcement",
+    "params.run":               "Run Solver",
 
     // ---- Result area ----
     "result.placeholder": "Set parameters and click Run Solver.",

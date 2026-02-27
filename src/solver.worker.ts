@@ -21,6 +21,7 @@ export interface SolveParams {
   reqMax: number;
   seed: number;
   maxIter: number;
+  lambdaReq: number;
 }
 
 export type WorkerMessage =
@@ -37,7 +38,7 @@ export type WorkerMessage =
     };
 
 self.onmessage = (e: MessageEvent<SolveParams>) => {
-  const { n, m, cellValueMin, cellValueMax, reqMin, reqMax, seed, maxIter } = e.data;
+  const { n, m, cellValueMin, cellValueMax, reqMin, reqMax, seed, maxIter, lambdaReq } = e.data;
 
   const rng = makePrng(seed);
   const { grid, requirements } = generateData(
@@ -59,6 +60,9 @@ self.onmessage = (e: MessageEvent<SolveParams>) => {
   const w = asgn[0].length;
   const numAssignValues = m + 1; // 0..m
 
+  // Running scores maintained in-place to avoid recomputing every iteration
+  const scores = playerScores(grid, asgn, m);
+
   const t0 = performance.now();
 
   for (let i = 0; i < maxIter; i++) {
@@ -70,8 +74,8 @@ self.onmessage = (e: MessageEvent<SolveParams>) => {
     const c3 = randInt(rng, 1, w - 1);
     const val = randInt(rng, 0, numAssignValues);
 
-    trySwapAssignment(asgn, [r1, c1], [r2, c2]);
-    tryChangeSingleAssignment(asgn, [r3, c3], val);
+    trySwapAssignment(asgn, grid, scores, requirements, lambdaReq, [r1, c1], [r2, c2]);
+    tryChangeSingleAssignment(asgn, grid, scores, requirements, lambdaReq, [r3, c3], val);
 
     if ((i + 1) % logInterval === 0) {
       const progressMsg: WorkerMessage = {
@@ -87,7 +91,6 @@ self.onmessage = (e: MessageEvent<SolveParams>) => {
 
   const elapsedMs = performance.now() - t0;
   const finalEdgeDiff = totalEdgeDiff(asgn);
-  const scores = playerScores(grid, asgn, m);
 
   const doneMsg: WorkerMessage = {
     type: "done",
