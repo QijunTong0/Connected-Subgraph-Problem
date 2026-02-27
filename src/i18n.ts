@@ -60,6 +60,8 @@ const translations: Record<Lang, Record<string, string>> = {
     "params.hint.maxiter": "1,000 – 500,000",
     "params.label.lambdareq": "要求ペナルティ λ",
     "params.hint.lambdareq": "0 = 無視 ／ 大きいほど要求制約を優先",
+    "params.label.satemp": "焼きなまし初期温度 T₀",
+    "params.hint.satemp": "0 = 厳密改善のみ ／ 大きいほど探索的",
     "params.run": "ソルバーを実行",
 
     // ---- Result area ----
@@ -157,6 +159,8 @@ const translations: Record<Lang, Record<string, string>> = {
     "params.hint.maxiter": "1,000 – 500,000",
     "params.label.lambdareq": "Requirement penalty λ",
     "params.hint.lambdareq": "0 = ignore ／ larger = stricter requirement enforcement",
+    "params.label.satemp": "SA initial temperature T₀",
+    "params.hint.satemp": "0 = strict improvement only ／ larger = more exploratory",
     "params.run": "Run Solver",
 
     // ---- Result area ----

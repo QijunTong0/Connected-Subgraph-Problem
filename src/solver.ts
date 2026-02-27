@@ -43,49 +43,92 @@ export function generateData(
 }
 
 // ---------------------------------------------------------------------------
-// initial_assignment — greedy tightest-window-first
-// Port of heuristic.initial_assignment
+// initial_assignment — region-growing (BFS) to guarantee connected regions
 // ---------------------------------------------------------------------------
-export function initialAssignment(grid: number[][], requirements: number[]): number[][] {
+export function initialAssignment(
+  grid: number[][],
+  requirements: number[],
+  rng: () => number,
+): number[][] {
   const n = grid.length;
   const m = requirements.length;
   const asgn: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
-  const upper = requirements.map((r) => Math.floor(r * 1.2));
   const scores = new Array<number>(m).fill(0);
   const satisfied = new Array<boolean>(m).fill(false);
+  const DIRS: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
 
-  // Collect all cells and sort by value descending
-  const cells: [number, number, number][] = [];
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      cells.push([grid[i][j], i, j]);
+  // Step 1: Place m distinct random seed cells
+  const taken = new Set<number>();
+  for (let k = 0; k < m; k++) {
+    let r: number, c: number;
+    do {
+      r = randInt(rng, 0, n - 1);
+      c = randInt(rng, 0, n - 1);
+    } while (taken.has(r * n + c));
+    taken.add(r * n + c);
+    asgn[r][c] = k + 1;
+    scores[k] = grid[r][c];
+    if (scores[k] >= requirements[k]) satisfied[k] = true;
+  }
+
+  // Step 2: Initialize BFS frontiers from seeds
+  // frontier[k] = candidate cells adjacent to player k's territory (may include stale entries)
+  const frontiers: [number, number][][] = Array.from({ length: m }, () => []);
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const k = asgn[r][c] - 1;
+      if (k < 0) continue;
+      for (const [dr, dc] of DIRS) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < n && nc >= 0 && nc < n && asgn[nr][nc] === 0) {
+          frontiers[k].push([nr, nc]);
+        }
+      }
     }
   }
-  cells.sort((a, b) => b[0] - a[0]);
 
-  for (const [v, i, j] of cells) {
-    if (satisfied.every(Boolean)) break;
-
-    // Assign to the player with the tightest remaining capacity window
+  // Step 3: Greedy BFS expansion — player with most need expands first
+  while (!satisfied.every(Boolean)) {
+    // Pick the unsatisfied player with the largest remaining deficit
     let bestK = -1;
-    let bestCap = Infinity;
+    let bestNeed = -1;
     for (let k = 0; k < m; k++) {
       if (satisfied[k]) continue;
       const need = requirements[k] - scores[k];
-      if (need <= 0) continue;
-      const cap = upper[k] - scores[k];
-      if (v > cap) continue;
-      if (cap < bestCap) {
-        bestCap = cap;
-        bestK = k;
+      if (need > bestNeed) { bestNeed = need; bestK = k; }
+    }
+    if (bestK < 0) break;
+
+    // Find best unoccupied cell in this player's frontier (highest grid value)
+    const frontier = frontiers[bestK];
+    let bestIdx = -1;
+    let bestVal = -Infinity;
+    for (let i = 0; i < frontier.length; i++) {
+      const [r, c] = frontier[i];
+      if (asgn[r][c] !== 0) continue; // stale entry — skip
+      if (grid[r][c] > bestVal) { bestVal = grid[r][c]; bestIdx = i; }
+    }
+
+    if (bestIdx < 0) {
+      // No reachable unoccupied cell — give up on this player
+      satisfied[bestK] = true;
+      continue;
+    }
+
+    const [nr, nc] = frontier[bestIdx];
+    asgn[nr][nc] = bestK + 1;
+    scores[bestK] += grid[nr][nc];
+    if (scores[bestK] >= requirements[bestK]) satisfied[bestK] = true;
+
+    // Expand frontier with new neighbours
+    for (const [dr, dc] of DIRS) {
+      const r2 = nr + dr, c2 = nc + dc;
+      if (r2 >= 0 && r2 < n && c2 >= 0 && c2 < n && asgn[r2][c2] === 0) {
+        frontiers[bestK].push([r2, c2]);
       }
     }
-    if (bestK < 0) continue;
-
-    asgn[i][j] = bestK + 1; // 1-indexed player ID
-    scores[bestK] += v;
-    if (scores[bestK] >= requirements[bestK]) satisfied[bestK] = true;
   }
+
   return asgn;
 }
 
@@ -104,7 +147,7 @@ export function calcLocalScore(asgn: number[][], r: number, c: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// try_swap_assignment — composite loss: edge diff + λ × requirements penalty
+// try_swap_assignment — composite loss + simulated annealing acceptance
 // ---------------------------------------------------------------------------
 export function trySwapAssignment(
   asgn: number[][],
@@ -112,6 +155,8 @@ export function trySwapAssignment(
   scores: number[],
   requirements: number[],
   lambdaReq: number,
+  temperature: number,
+  rng: () => number,
   pos1: [number, number],
   pos2: [number, number],
 ): boolean {
@@ -121,7 +166,7 @@ export function trySwapAssignment(
   const oldEdge = calcLocalScore(asgn, r1, c1) + calcLocalScore(asgn, r2, c2);
 
   // Compute Δ_req for affected players (k1, k2 are 1-indexed; 0 means empty)
-  const k1 = asgn[r1][c1]; // 1-indexed player id (or 0)
+  const k1 = asgn[r1][c1];
   const k2 = asgn[r2][c2];
   let deltaReq = 0;
   if (lambdaReq !== 0 && k1 !== k2) {
@@ -144,8 +189,10 @@ export function trySwapAssignment(
   asgn[r2][c2] = tmp;
   const newEdge = calcLocalScore(asgn, r1, c1) + calcLocalScore(asgn, r2, c2);
 
-  if (newEdge - oldEdge + lambdaReq * deltaReq < 0) {
-    // Accept: update scores in-place
+  const delta = newEdge - oldEdge + lambdaReq * deltaReq;
+  const accept = delta < 0 || (temperature > 0 && rng() < Math.exp(-delta / temperature));
+
+  if (accept) {
     if (k1 !== k2) {
       const v1 = grid[r1][c1];
       const v2 = grid[r2][c2];
@@ -161,7 +208,7 @@ export function trySwapAssignment(
 }
 
 // ---------------------------------------------------------------------------
-// try_change_single_assignment — composite loss: edge diff + λ × requirements penalty
+// try_change_single_assignment — composite loss + simulated annealing acceptance
 // ---------------------------------------------------------------------------
 export function tryChangeSingleAssignment(
   asgn: number[][],
@@ -169,11 +216,13 @@ export function tryChangeSingleAssignment(
   scores: number[],
   requirements: number[],
   lambdaReq: number,
+  temperature: number,
+  rng: () => number,
   pos: [number, number],
   newValue: number,
 ): boolean {
   const [r, c] = pos;
-  const kOld = asgn[r][c]; // 1-indexed (or 0)
+  const kOld = asgn[r][c];
   const kNew = newValue;
   if (kOld === kNew) return false;
 
@@ -198,8 +247,10 @@ export function tryChangeSingleAssignment(
   asgn[r][c] = kNew;
   const newEdge = calcLocalScore(asgn, r, c);
 
-  if (newEdge - oldEdge + lambdaReq * deltaReq < 0) {
-    // Accept: update scores in-place
+  const delta = newEdge - oldEdge + lambdaReq * deltaReq;
+  const accept = delta < 0 || (temperature > 0 && rng() < Math.exp(-delta / temperature));
+
+  if (accept) {
     const v = grid[r][c];
     if (kOld > 0) scores[kOld - 1] -= v;
     if (kNew > 0) scores[kNew - 1] += v;

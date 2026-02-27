@@ -22,6 +22,7 @@ export interface SolveParams {
   seed: number;
   maxIter: number;
   lambdaReq: number;
+  saTemp: number;
 }
 
 export type WorkerMessage =
@@ -38,7 +39,7 @@ export type WorkerMessage =
     };
 
 self.onmessage = (e: MessageEvent<SolveParams>) => {
-  const { n, m, cellValueMin, cellValueMax, reqMin, reqMax, seed, maxIter, lambdaReq } = e.data;
+  const { n, m, cellValueMin, cellValueMax, reqMin, reqMax, seed, maxIter, lambdaReq, saTemp } = e.data;
 
   const rng = makePrng(seed);
   const { grid, requirements } = generateData(
@@ -49,7 +50,7 @@ self.onmessage = (e: MessageEvent<SolveParams>) => {
     rng,
   );
 
-  const asgn = initialAssignment(grid, requirements);
+  const asgn = initialAssignment(grid, requirements, rng);
   const initEdgeDiff = totalEdgeDiff(asgn);
 
   const msg: WorkerMessage = { type: "start", grid, requirements, initEdgeDiff };
@@ -63,9 +64,16 @@ self.onmessage = (e: MessageEvent<SolveParams>) => {
   // Running scores maintained in-place to avoid recomputing every iteration
   const scores = playerScores(grid, asgn, m);
 
+  // Geometric cooling: T(i) = saTemp × (Tmin/saTemp)^(i/maxIter), Tmin=1e-3
+  const T_MIN = 1e-3;
+
   const t0 = performance.now();
 
   for (let i = 0; i < maxIter; i++) {
+    const T = saTemp > 0
+      ? saTemp * Math.pow(T_MIN / saTemp, i / maxIter)
+      : 0;
+
     const r1 = randInt(rng, 0, h - 1);
     const c1 = randInt(rng, 1, w - 1);
     const r2 = randInt(rng, 0, h - 1);
@@ -74,8 +82,8 @@ self.onmessage = (e: MessageEvent<SolveParams>) => {
     const c3 = randInt(rng, 1, w - 1);
     const val = randInt(rng, 0, numAssignValues);
 
-    trySwapAssignment(asgn, grid, scores, requirements, lambdaReq, [r1, c1], [r2, c2]);
-    tryChangeSingleAssignment(asgn, grid, scores, requirements, lambdaReq, [r3, c3], val);
+    trySwapAssignment(asgn, grid, scores, requirements, lambdaReq, T, rng, [r1, c1], [r2, c2]);
+    tryChangeSingleAssignment(asgn, grid, scores, requirements, lambdaReq, T, rng, [r3, c3], val);
 
     if ((i + 1) % logInterval === 0) {
       const progressMsg: WorkerMessage = {

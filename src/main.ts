@@ -229,6 +229,7 @@ function getParams(): SolveParams {
     seed: v("inp-seed"),
     maxIter: v("inp-max-iter"),
     lambdaReq: vf("inp-lambda-req"),
+    saTemp: vf("inp-sa-temp"),
   };
 }
 
