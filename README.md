@@ -48,7 +48,7 @@ $$
 ### 損失関数（複合目的関数）
 
 $$
-\mathcal{L} = \underbrace{\text{edge\_diff}}_{\text{連結性の近似}} + \lambda \underbrace{\sum_{k=1}^m \max\!\left(0,\; R_k - \mathrm{score}_k\right)}_{\text{要求未達ペナルティ}}
+\mathcal{L} = \underbrace{\text{edge-diff}}_{\text{連結性の近似}} + \lambda \underbrace{\sum_{k=1}^m \max\left(0, R_k - \mathrm{score}_k\right)}_{\text{要求未達ペナルティ}}
 $$
 
 - **edge\_diff**：異なるプレイヤーが隣接するセルペアの総数。これを小さくすることで各プレイヤーの領域がコンパクト・連結に近づく。
