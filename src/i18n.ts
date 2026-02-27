@@ -65,7 +65,7 @@ const translations: Record<Lang, Record<string, string>> = {
     // ---- Result area ----
     "result.placeholder": "パラメータを設定して「ソルバーを実行」をクリックしてください。",
     "chart.title":        "損失関数（edge_diff）のイテレーション推移",
-    "chart.xaxis":        "イテレーション数（対数目盛）",
+    "chart.xaxis":        "イテレーション数",
     "chart.yaxis":        "edge_diff",
 
     // ---- Stats table ----
@@ -162,7 +162,7 @@ const translations: Record<Lang, Record<string, string>> = {
     // ---- Result area ----
     "result.placeholder": "Set parameters and click Run Solver.",
     "chart.title":        "Loss Function (edge_diff) over Iterations",
-    "chart.xaxis":        "Iterations (log scale)",
+    "chart.xaxis":        "Iterations",
     "chart.yaxis":        "edge_diff",
 
     // ---- Stats table ----

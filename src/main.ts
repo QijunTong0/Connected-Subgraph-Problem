@@ -74,23 +74,17 @@ function drawChart(maxIter: number): void {
   const yMax = Math.max(...yVals);
   const yRange = yMax - yMin || 1;
 
-  // Log X scale: log10(1) → log10(maxIter)
-  const xLogMax = Math.log10(maxIter);
-  const xScale = (iter: number): number => {
-    const logIter = Math.log10(Math.max(1, iter));
-    return PAD.left + (logIter / xLogMax) * plotW;
-  };
+  // Linear X scale: 0 → maxIter
+  const xScale = (iter: number): number =>
+    PAD.left + (iter / maxIter) * plotW;
   const yScale = (v: number): number =>
     PAD.top + (1 - (v - yMin) / yRange) * plotH;
 
-  // Grid lines + X-axis labels (powers of 10 that fit the range)
-  const decades = [1, 10, 100, 1_000, 10_000, 100_000, 500_000].filter(
-    (d) => d <= maxIter,
-  );
+  // Grid lines + X-axis labels (5 evenly spaced ticks)
   ctx.font = "11px system-ui";
-
-  for (const d of decades) {
-    const x = xScale(d);
+  for (let step = 0; step <= 4; step++) {
+    const iter = (maxIter * step) / 4;
+    const x = xScale(iter);
 
     ctx.strokeStyle = "#eee";
     ctx.lineWidth = 1;
@@ -102,7 +96,7 @@ function drawChart(maxIter: number): void {
     ctx.fillStyle = "#888";
     ctx.textAlign = "center";
     ctx.fillText(
-      d >= 1_000 ? `${d / 1_000}k` : String(d),
+      iter >= 1_000 ? `${Math.round(iter / 1_000)}k` : String(Math.round(iter)),
       x,
       PAD.top + plotH + 16,
     );
@@ -136,7 +130,7 @@ function drawChart(maxIter: number): void {
   ctx.lineJoin = "round";
   ctx.beginPath();
   lossHistory.forEach((p, i) => {
-    const x = xScale(Math.max(1, p.iter));
+    const x = xScale(p.iter);
     const y = yScale(p.edgeDiff);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
@@ -146,7 +140,7 @@ function drawChart(maxIter: number): void {
   // Data point dots
   ctx.fillStyle = "#5c7cfa";
   for (const p of lossHistory) {
-    const x = xScale(Math.max(1, p.iter));
+    const x = xScale(p.iter);
     const y = yScale(p.edgeDiff);
     ctx.beginPath();
     ctx.arc(x, y, 3, 0, Math.PI * 2);
